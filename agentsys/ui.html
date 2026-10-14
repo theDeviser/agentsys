@@ -199,6 +199,11 @@ h2 .more { margin-left: auto; font-weight: 400; font-size: var(--fs-sm); }
 .cmd span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cmd button { height: 18px; padding: 0 6px; border-radius: var(--r-sm); font: var(--fs-xs)/18px var(--sans); color: var(--text-3); }
 .cmd button:hover { background: var(--hover); color: var(--text-1); }
+.next { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 12px; padding: 10px 12px;
+  border-radius: var(--r-lg); background: var(--fill-3); border: 1px solid var(--stroke-3); }
+.next b { font-weight: 600; font-size: var(--fs-sm); }
+.next > span { color: var(--text-2); }
+.next .cmd { margin-top: 0; }
 .calm { display: flex; align-items: center; gap: 10px; padding: 12px 14px; color: var(--text-2); }
 
 /* agent cards */
@@ -454,11 +459,11 @@ function av(actor, cls = "", live = false) {
 }
 const STATE = {
   ready: { label: "Queued", cls: "s-idle", say: "Waiting for an agent to pick it up." },
-  in_progress: { label: "Working", cls: "s-working", say: "An agent holds the lease and is working on it." },
-  blocked: { label: "Blocked", cls: "s-bad", say: "Blocked. It needs an unblock before anyone can continue." },
-  submitted: { label: "Checking", cls: "s-check", say: "Submitted. Automated checks (scope, syntax, secrets) haven’t run yet." },
-  verified: { label: "In review", cls: "s-check", say: "Checks passed. It needs a review from an agent that didn’t write it." },
-  changes_requested: { label: "Changes requested", cls: "s-bad", say: "A reviewer asked for changes. It goes back in the queue." },
+  in_progress: { label: "Working", cls: "s-working", say: "An agent is working on it." },
+  blocked: { label: "Blocked", cls: "s-bad", say: "Blocked. Nobody can continue until the blocker is fixed and it’s unblocked." },
+  submitted: { label: "Checking", cls: "s-check", say: "Submitted. Waiting for the automated checks (scope, syntax, secrets)." },
+  verified: { label: "In review", cls: "s-check", say: "Checks passed. A different agent identity must review it; whoever claimed, checkpointed or submitted it can’t approve it." },
+  changes_requested: { label: "Changes requested", cls: "s-bad", say: "A reviewer asked for changes. Read the review, then dispatch it again." },
   accepted: { label: "Accepted", cls: "s-good", say: "Reviewed and accepted." },
   merged: { label: "Merged", cls: "s-good", say: "Merged into the target branch." },
   escalated: { label: "Needs you", cls: "s-bad", say: "Out of attempts. A human has to decide what happens next." },
@@ -548,24 +553,43 @@ function attention(d) {
   for (const a of d.approvals.filter((a) => a.status === "pending"))
     out.push({ tone: "warn", title: `Approve ${a.action} for ${a.task_id}`, body: `${who(a.requested_by).label} asked: ${a.reason || "no reason given"}`, cmd: `agentsys approve ${a.id}`, task: a.task_id });
   for (const t of d.tasks.filter((t) => t.state === "escalated"))
-    out.push({ tone: "bad", title: `“${short(t.title, 70)}” ran out of attempts`, body: `It failed ${t.attempts} of ${t.max_attempts} tries. Read the blockers, then requeue or cancel it.`, cmd: `agentsys requeue ${t.id}`, task: t.id });
+    out.push({ tone: "bad", title: `“${short(t.title, 70)}” ran out of attempts`, body: `It failed ${t.attempts} of ${t.max_attempts} attempts. Read its blockers. Then requeue it to try again, or cancel it if the goal no longer applies.`, cmd: `agentsys show ${t.id}`, task: t.id });
   for (const t of d.tasks.filter((t) => t.state === "blocked"))
-    out.push({ tone: "bad", title: `“${short(t.title, 70)}” is blocked`, body: "Someone marked it blocked. Check its latest blocker note.", cmd: `agentsys unblock ${t.id}`, task: t.id });
+    out.push({ tone: "bad", title: `“${short(t.title, 70)}” is blocked`, body: `Read the latest blocker note and fix the cause, then run agentsys unblock ${t.id} to put it back in the queue.`, cmd: `agentsys show ${t.id}`, task: t.id });
   for (const t of d.tasks.filter((t) => t.state === "accepted" && t.kind === "implement"))
-    out.push({ tone: "info", title: `“${short(t.title, 70)}” is ready to merge`, body: `Reviewed and accepted on branch ${t.branch || "agent/" + t.id}. Merging needs your approval.`, cmd: `agentsys merge-check ${t.id} && agentsys merge ${t.id}`, task: t.id });
+    out.push({ tone: "info", title: `“${short(t.title, 70)}” is ready to merge`, body: `Reviewed and accepted on branch ${t.branch || "agent/" + t.id}. This command checks for conflicts, then asks for your approval before merging.`, cmd: `agentsys merge-check ${t.id} && agentsys merge ${t.id}`, task: t.id });
   for (const b of d.budgets.filter((b) => b.dispatch === "refused"))
-    out.push({ tone: "warn", title: `${HARNESS[b.adapter]?.name || b.provider} can’t be dispatched on ${b.account}`, body: budgetWhy(b) + " To allow it, raise the cap:", budget: true,
-      cmd: b.per_run_limit && b.next_estimate > b.per_run_limit
-        ? `agentsys budget set ${b.provider} ${b.account} --limit ${b.limit || 0} --per-run <tokens>${b.window_hours ? ` --window-hours ${b.window_hours}` : ""}`
-        : `agentsys budget set ${b.provider} ${b.account} --limit <tokens>${b.per_run_limit ? ` --per-run ${b.per_run_limit}` : ""}${b.window_hours ? ` --window-hours ${b.window_hours}` : ""}` });
+    out.push({ tone: "warn", title: `${HARNESS[b.adapter]?.name || b.provider} can’t be dispatched on ${b.account}`, body: budgetWhy(b) + " The cap is your decision. If you want to allow it, this raises it to fit the next run:", budget: true, cmd: budgetFix(b) });
   return out;
+}
+const roundUp = (n, step) => Math.ceil(n / step) * step;
+function budgetFix(b) {
+  const win = b.window_hours ? ` --window-hours ${b.window_hours}` : "";
+  if (b.per_run_limit && b.next_estimate > b.per_run_limit)
+    return `agentsys budget set ${b.provider} ${b.account} --limit ${b.limit || 0} --per-run ${roundUp(b.next_estimate * 1.25, 10000)}${win}`;
+  const need = b.limit ? roundUp((b.used + b.next_estimate) / (1 - (b.reserve_pct || 0) / 100), 100000) : 0;
+  return `agentsys budget set ${b.provider} ${b.account} --limit ${need}${b.per_run_limit ? ` --per-run ${b.per_run_limit}` : ""}${win}`;
 }
 function budgetWhy(b) {
   if (b.per_run_limit && b.next_estimate > b.per_run_limit)
-    return `Its per-run cap is ${full(b.per_run_limit)} tokens, but its runs average ${full(b.next_estimate)}. Every dispatch will be refused until the cap goes up.`;
-  if (b.limit && b.pct >= 100) return `It has used ${full(b.used)} of ${full(b.limit)} tokens (${b.pct}%).`;
-  if (b.limit) return `The next run (about ${full(b.next_estimate)} tokens) would go into the ${b.reserve_pct}% reserve kept for reviews.`;
+    return `The next run is estimated at ${full(b.next_estimate)} tokens (the average of recent runs), over this account’s per-run cap of ${full(b.per_run_limit)}.`;
+  if (b.limit && b.pct >= 100) return `It has used ${full(b.used)} of its ${full(b.limit)}-token cap (${b.pct}%).`;
+  if (b.limit) return `The next run (about ${full(b.next_estimate)} tokens) would dip into the ${b.reserve_pct}% kept back for reviews.`;
   return b.refusal || "Dispatch is refused.";
+}
+function nextStep(t) {
+  const i = t.id;
+  switch (t.state) {
+    case "ready": return ["Dispatch it to an agent.", `agentsys dispatch ${i} --adapter codex --account <name>`];
+    case "in_progress": return [`${who(t.owner).label} is working on it. If it stops checking in, it goes back to the queue at ${clock(t.lease_expires)}.`, `agentsys show ${i}`];
+    case "blocked": return ["Read the blocker, fix the cause, then unblock it.", `agentsys unblock ${i}`];
+    case "submitted": return ["Run the automated checks.", `agentsys verify ${i}`];
+    case "verified": return ["Get a review from an identity that didn’t work on it.", `agentsys --as <harness:account:role> review ${i} approve --reason "…"`];
+    case "changes_requested": return ["Read the review below, then dispatch it again.", `agentsys dispatch ${i} --adapter <harness> --account <name>`];
+    case "escalated": return ["Read the blockers. Requeue to retry, or cancel it.", `agentsys requeue ${i}`];
+    case "accepted": return t.kind === "implement" ? ["Merge it. This asks for your approval first.", `agentsys merge-check ${i} && agentsys merge ${i}`] : ["Nothing. Its findings are passed to any task that depends on it.", null];
+    default: return ["Nothing. It’s finished.", null];
+  }
 }
 function headline(d) {
   const by = (s) => d.tasks.filter((t) => s.includes(t.state)).length;
@@ -682,7 +706,7 @@ function agentCard(a) {
   const d = S.data, w = who(a.agent), live = d.live.find((l) => l.agent === a.agent);
   let now;
   if (live) { const t = taskById(live.task_id); now = `<span class="pulse" style="color:var(--accent)">Running</span> <a href="#" data-task="${live.task_id}">${esc(short(t?.title || live.task_id, 60))}</a> for <span>${dur(nowS() - live.since)}</span>. Estimate ${tok(live.estimate)} tokens.`; }
-  else if (a.holding.length) { const t = taskById(a.holding[0]); now = `Holding <a href="#" data-task="${t.id}">${esc(short(t.title, 60))}</a> (lease until ${clock(t.lease_expires)}).`; }
+  else if (a.holding.length) { const t = taskById(a.holding[0]); now = `Working on <a href="#" data-task="${t.id}">${esc(short(t.title, 60))}</a>, with no run in progress. Its exclusive hold runs until ${clock(t.lease_expires)}.`; }
   else {
     const t = taskById(a.last_task), verb = (a.last_kind?.startsWith("finding.") ? "added a note" : EV_VERB[a.last_kind]?.(null) || a.last_kind || "").replace(/ it$/, "");
     now = `Idle since <span data-rel="${a.last_ts}">${rel(a.last_ts)}</span>. Last ${esc(verb)}${t ? `: <a href="#" data-task="${t.id}">${esc(short(t.title, 52))}</a>` : ""}.`;
@@ -763,7 +787,7 @@ function budgetCard(b) {
     ${b.limit ? `<div class="meter" role="meter" aria-valuemin="0" aria-valuemax="${b.limit}" aria-valuenow="${b.used}" aria-label="${esc(p.name)} usage"><i class="${cls}" style="width:${pct}%"></i>${reserveAt ? `<span class="reserve" style="left:${reserveAt}%" title="Review reserve starts here"></span>` : ""}</div>` : ""}
     <dl class="kv"><dt>Per-run cap</dt><dd>${b.per_run_limit ? full(b.per_run_limit) + " tokens" : "none"}</dd>
       <dt>Next run</dt><dd>about ${full(b.next_estimate)} tokens <span class="faint">(average of recent runs)</span></dd>
-      <dt>All time</dt><dd>${full(b.used_all_time)} tokens over ${b.runs} run${b.runs === 1 ? "" : "s"}</dd>
+      <dt>All time</dt><dd>${full(b.used_all_time)} tokens over ${b.runs} run${b.runs === 1 ? "" : "s"}${b.projects > 1 ? ` in ${b.projects} projects` : ""}</dd>
       <dt>Spend</dt><dd>${b.spend_usd != null ? `${usd(b.spend_usd)} <span class="faint">reported by the provider</span>` : '<span class="faint">not reported by this CLI (subscription plan)</span>'}</dd>
       ${b.source ? `<dt>Set by</dt><dd>${esc(b.source)}</dd>` : ""}</dl>${note}</div>`;
 }
@@ -771,7 +795,7 @@ function viewBudget(d) {
   const ad = d.harnesses || [];
   const rows = ad.map((a) => { const h = HARNESS[a.adapter] || {}; return `<div class="calm">${av(a.adapter, "")}<div style="flex:1"><div style="color:var(--text-1)">${esc(h.name || a.adapter)}</div><div class="sub">${esc(h.vendor || "")} · adapter <code>${esc(a.adapter)}</code></div></div>${a.available ? '<span class="badge s-good">Installed</span>' : '<span class="badge s-idle">Not found</span>'}</div>`; }).join("");
   const later = NOT_YET.map((n) => `<div class="calm">${ICONS[n.icon] ? `<span class="av">${brand(n.icon)}</span>` : ""}<div style="flex:1"><div style="color:var(--text-1)">${esc(n.name)}</div><div class="sub">${esc(n.vendor)}</div></div><span class="badge s-idle">No adapter yet</span></div>`).join("");
-  return `<div class="page"><h1>Budget & spend</h1><p class="lede">Each provider account has its own limit; nothing is pooled or shared. Limits are checked before a run starts. A CLI can’t be stopped partway through a run, so one run can go over a cap. When that happens it’s flagged here and in the run’s output.</p>
+  return `<div class="page"><h1>Budget & spend</h1><p class="lede">Each provider account has its own limit; nothing is pooled between accounts. An account’s usage is counted across every project on this machine (in <code>~/.agentsys/ledger.db</code>), so a cap holds whichever repo dispatches. Limits are checked before a run starts. A CLI can’t be stopped partway through a run, so one run can go over a cap. When that happens it’s flagged here and in the run’s output.</p>
     <h2>Accounts</h2><div class="grid">${d.budgets.map(budgetCard).join("") || '<div class="card empty">No budgets set.</div>'}</div>
     <h2>Harnesses <span class="hint">CLIs agentsys can dispatch to on this machine</span></h2><div class="list">${rows}</div>
     <h2>Not connected <span class="hint">shown for reference only; nothing is sent to these</span></h2><div class="list">${later}</div>
@@ -832,11 +856,12 @@ function viewTask(id) {
   if (!t) return `<div class="page"><div class="empty"><b>Task not found</b>It may belong to another project.</div></div>`;
   const live = S.data.live.find((l) => l.task_id === id), chain = S.data.flows[id] || [];
   let say = STATE[t.state]?.say || "";
-  if (t.state === "in_progress" && t.owner) say = `${who(t.owner).label}${who(t.owner).account ? " (" + who(t.owner).account + ")" : ""} is working on it${live ? `. Running for ${dur(nowS() - live.since)}` : ""}. Lease ends at ${clock(t.lease_expires)}.`;
-  if (t.state === "verified") say += ` Anyone who claimed, checkpointed or submitted it can’t review it.`;
-  if (t.state === "accepted" && t.kind === "implement") say = `Accepted. Merging into the target branch needs your approval: agentsys merge ${t.id}`;
+  if (t.state === "in_progress" && t.owner) say = `${who(t.owner).label}${who(t.owner).account ? " (" + who(t.owner).account + ")" : ""} is working on it${live ? `, with a run going for ${dur(nowS() - live.since)}` : ""}.`;
+  const [nextTxt, nextCmd] = nextStep(t);
   let h = `<div class="page"><div style="display:flex;align-items:center;gap:8px">${stateBadge(t.state)}<span class="chip">${esc(t.kind)}</span><span class="mono faint">${esc(t.id)}</span></div>
-    <h1>${esc(t.title)}</h1><p class="lede" style="font-size:var(--fs);line-height:20px">${esc(say)}</p>${t.state !== "cancelled" ? stepper(t) : ""}`;
+    <h1>${esc(t.title)}</h1><p class="lede" style="font-size:var(--fs);line-height:20px">${esc(say)}</p>
+    <div class="next"><b>Next</b><span>${esc(nextTxt)}</span>${nextCmd ? `<div class="cmd"><span>${esc(nextCmd)}</span><button data-copy="${esc(nextCmd)}" aria-label="Copy command">Copy</button></div>` : ""}</div>
+    ${t.state !== "cancelled" ? stepper(t) : ""}`;
   if (chain.length) h += `<h2>Handoffs</h2><div class="list">${flowRow(t)}</div>`;
   h += `<div class="cols"><div>`;
   if (t.goal || t.acceptance) h += `<h2>Goal</h2><div class="msg-body" style="color:var(--text-2)">${esc(t.goal)}${t.acceptance ? `\n\nDone when: ${esc(t.acceptance)}` : ""}</div>`;

@@ -10,6 +10,8 @@ import uuid
 from contextlib import contextmanager
 from pathlib import Path
 
+from .ledger import Ledger
+
 SCHEMA_VERSION = 1
 
 STATES = (
@@ -135,6 +137,9 @@ class Store:
             os.chmod(self.path, 0o600)
         except OSError:
             pass
+        self.project = str(self.path.parent.parent)
+        self.ledger = Ledger()
+        self.ledger.import_from(self.db, self.project)  # idempotent; also catches runs written by older versions
 
     def _migrate(self):
         cols = {r["name"] for r in self.db.execute("PRAGMA table_info(budgets)")}
@@ -145,6 +150,7 @@ class Store:
 
     def close(self):
         self.db.close()
+        self.ledger.close()
 
     @contextmanager
     def tx(self):
@@ -394,9 +400,16 @@ class Store:
             cur = db.execute(f"INSERT INTO runs ({cols}) VALUES ({','.join('?' * len(r))})", tuple(r.values()))
             self._event(db, f"{r['adapter']}:{r['account']}", r.get("task_id"), "run.recorded",
                         {"run_id": cur.lastrowid, "exit": r.get("exit_code"), "usage_source": r["usage_source"]})
-            return cur.lastrowid
+            run_id = cur.lastrowid
+        self.ledger.record_run(self.project, run_id, **r)
+        return run_id
+
+    def account_runs(self, provider, account) -> list:
+        """Runs for one account across every project (what budgets are checked against)."""
+        return self.ledger.runs(provider, account)
 
     def runs(self, provider=None, account=None) -> list:
+        """Runs recorded in this project only."""
         q, args = "SELECT * FROM runs WHERE 1=1", []
         if provider:
             q, args = q + " AND provider=?", args + [provider]
@@ -406,25 +419,19 @@ class Store:
 
     def set_budget(self, provider, account, limit_tokens, actor, reserve_pct=20.0, source="manual", note=None,
                    per_run_limit=None, window_hours=None):
-        """limit_tokens=0 means tracking only (no cap). window_hours limits usage counting to a rolling window."""
+        """Budgets live in the user-level ledger. limit_tokens=0 means tracking only (no cap).
+        window_hours limits usage counting to a rolling window."""
+        self.ledger.set_budget(provider, account, limit_tokens, reserve_pct, source, note, per_run_limit, window_hours)
         with self.tx() as db:
-            db.execute("INSERT INTO budgets (provider,account,limit_tokens,reserve_pct,source,note,updated_at,"
-                       "per_run_limit,window_hours) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(provider,account) DO UPDATE SET "
-                       "limit_tokens=excluded.limit_tokens, reserve_pct=excluded.reserve_pct, source=excluded.source, "
-                       "note=excluded.note, updated_at=excluded.updated_at, per_run_limit=excluded.per_run_limit, "
-                       "window_hours=excluded.window_hours",
-                       (provider, account, int(limit_tokens), reserve_pct, source, note, now(), per_run_limit,
-                        window_hours))
             self._event(db, actor, None, "budget.set", {"provider": provider, "account": account,
                                                         "limit_tokens": int(limit_tokens), "reserve_pct": reserve_pct,
                                                         "per_run_limit": per_run_limit, "window_hours": window_hours})
 
     def budgets(self) -> list:
-        return [dict(r) for r in self.db.execute("SELECT * FROM budgets ORDER BY provider, account")]
+        return self.ledger.budgets()
 
     def budget(self, provider, account):
-        row = self.db.execute("SELECT * FROM budgets WHERE provider=? AND account=?", (provider, account)).fetchone()
-        return dict(row) if row else None
+        return self.ledger.budget(provider, account)
 
 
 def _missing(tid):

@@ -16,6 +16,34 @@ STATE_ORDER = ("in_progress", "submitted", "verified", "changes_requested", "rea
                "accepted", "merged", "cancelled")
 
 
+STATE_LABEL = {"ready": "queued", "in_progress": "working", "blocked": "blocked", "submitted": "waiting for checks",
+               "verified": "waiting for review", "changes_requested": "changes requested", "accepted": "accepted",
+               "merged": "merged", "escalated": "needs your decision", "cancelled": "cancelled"}
+
+
+def next_step(t) -> str:
+    """One plain-language next action for a task, with the exact command where there is one."""
+    i, s = t["id"], t["state"]
+    if s == "ready":
+        return f"dispatch it to an agent: agentsys dispatch {i} --adapter <cursor|codex|claude> --account <name>"
+    if s == "in_progress":
+        until = time.strftime("%H:%M", time.localtime(t["lease_expires"])) if t["lease_expires"] else "?"
+        return f"{t['owner']} is working on it (its exclusive hold runs until {until}, then it returns to the queue)"
+    if s == "blocked":
+        return f"read the blocker (agentsys show {i}), fix the cause, then: agentsys unblock {i}"
+    if s == "submitted":
+        return f"run the automated checks: agentsys verify {i}"
+    if s == "verified":
+        return f"get a review from an identity that didn't work on it: agentsys --as <harness:account:role> review {i} approve|reject"
+    if s == "changes_requested":
+        return f"read the review (agentsys show {i}), then dispatch it again"
+    if s == "escalated":
+        return f"read the blockers (agentsys show {i}), then retry with agentsys requeue {i} or drop it with agentsys cancel {i}"
+    if s == "accepted" and t["kind"] == "implement":
+        return f"merge it; this asks for your approval first: agentsys merge {i}"
+    return "nothing; it's finished"
+
+
 def die(msg, code=1):
     print(f"agentsys: {msg}", file=sys.stderr)
     sys.exit(code)
@@ -38,7 +66,8 @@ def open_store(args) -> Store:
     lease = float(os.environ.get("AGENTSYS_LEASE_SECONDS", "1800"))
     st = Store(db, lease_seconds=lease)
     for tid, to in st.reap():
-        print(f"(lease expired: {tid} -> {to})", file=sys.stderr)
+        print(f"notice: the agent working on {tid} stopped renewing its hold, so the task is now "
+              f"{STATE_LABEL.get(to, to)} and others can pick it up", file=sys.stderr)
     return st
 
 
@@ -258,13 +287,21 @@ def cmd_status(args):
     counts = {}
     for t in tasks:
         counts[t["state"]] = counts.get(t["state"], 0) + 1
-    print("tasks: " + (", ".join(f"{s}={counts[s]}" for s in STATE_ORDER if s in counts) or "none"))
-    for t in tasks:
-        if t["state"] in ("in_progress", "blocked", "escalated", "changes_requested"):
-            print(f"  {t['id']} {t['state']} {t['title']}" + (f" [{t['owner']}]" if t["owner"] else ""))
+    print("tasks: " + (", ".join(f"{counts[s]} {STATE_LABEL[s]}" for s in STATE_ORDER if s in counts) or "none"))
+    needs_you = [t for t in tasks if t["state"] in ("escalated", "blocked") or
+                 (t["state"] == "accepted" and t["kind"] == "implement")]
     pending = st.approvals("pending")
-    if pending:
-        print(f"pending approvals: {', '.join('#' + str(a['id']) for a in pending)}")
+    if needs_you or pending:
+        print("needs you:")
+        for a in pending:
+            print(f"  approval #{a['id']}: {a['action']} {a['task_id']} ({a['reason']}). Run: agentsys --as human:<name> approve {a['id']}")
+        for t in needs_you:
+            print(f"  {t['id']} {t['title']}: {STATE_LABEL[t['state']]}. Next: {next_step(t)}")
+    in_flight = [t for t in tasks if t["state"] in ("ready", "in_progress", "submitted", "verified", "changes_requested")]
+    if in_flight:
+        print("in flight:")
+        for t in in_flight:
+            print(f"  {t['id']} {t['title']}: {STATE_LABEL[t['state']]}. Next: {next_step(t)}")
     for b in st.budgets():
         print("budget " + _budget_line(budget.summary(st, b["provider"], b["account"])))
 
@@ -287,6 +324,7 @@ def brief(st, tid) -> str:
     lines = [f"# Task {t['id']}: {t['title']}", "",
              f"- state: {t['state']} · kind: {t['kind']} · attempt {t['attempts']}/{t['max_attempts']}"
              + (f" · owner: {t['owner']}" if t["owner"] else ""),
+             f"- next: {next_step(t)}",
              f"- goal: {t['goal'] or '(none)'}", f"- acceptance: {t['acceptance'] or '(none)'}"]
     if t["kind"] == "implement":
         lines.append(f"- allowed paths (enforced at verify): {', '.join(t['allowed_paths'])}")
@@ -355,7 +393,10 @@ def cmd_dispatch(args):
     if t["state"] in ("ready", "changes_requested"):
         t = st.claim(t["id"], actor, lease_seconds=args.lease or args.timeout + 300)
     elif not (t["state"] == "in_progress" and t["owner"] == actor):
-        die(f"{t['id']} is '{t['state']}' owned by {t['owner']}; cannot dispatch")
+        if t["state"] == "in_progress":
+            die(f"can't dispatch {t['id']}: {t['owner']} is already working on it. Wait for it to finish, "
+                f"or see what it's doing with `agentsys show {t['id']}`")
+        die(f"can't dispatch {t['id']}: it's {STATE_LABEL.get(t['state'], t['state'])}. Next: {next_step(t)}")
     write = t["kind"] == "implement"
     if write:
         path, branch = gitops.ensure_worktree(root_of(st), t["id"], t["base"])
@@ -385,7 +426,8 @@ def cmd_dispatch(args):
         st.add_finding(t["id"], actor, f"Run {run_id} failed (exit {res.exit_code}); task released", kind="blocker",
                        evidence=[f"run:{run_id}"])
         st.transition(t["id"], "release", actor, owner_only=True, owner=None, lease_expires=None)
-        die(f"{t['id']} released back to ready after failed run", 5)
+        die(f"run {run_id} failed (exit {res.exit_code}). {t['id']} is back in the queue. Read the output with "
+            f"`agentsys show {t['id']}`, fix the cause, then dispatch it again", 5)
     _checkpoint(st, t, actor, f"{adapter.name} run {run_id}", commit=write)
     t = st.transition(t["id"], "submit", actor, {"run_id": run_id}, owner_only=True, lease_expires=None)
     print(f"{t['id']} -> {t['state']}; next: agentsys verify {t['id']}")
