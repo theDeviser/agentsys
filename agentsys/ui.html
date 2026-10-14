@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>agentsys</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='4' fill='%230b6e66'/%3E%3Ccircle cx='5' cy='8' r='2' fill='white'/%3E%3Ccircle cx='11' cy='8' r='2' fill='white'/%3E%3C/svg%3E">
+<style>
+:root{--bg:#f6f7f6;--panel:#fff;--ink:#16201e;--ink-2:#4a5654;--ink-3:#6b7775;--line:#e2e6e5;--accent:#0b6e66;--accent-bg:#e6f2f0;
+--ok:#1f7a3d;--ok-bg:#e8f5ec;--warn:#9a5b00;--warn-bg:#fdf3e2;--bad:#b42318;--bad-bg:#fdecea;--info:#2453a6;--info-bg:#eaf0fb;
+--mono:ui-monospace,"SF Mono",Menlo,monospace;--sans:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",sans-serif}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1413;--panel:#161d1b;--ink:#e6ecea;--ink-2:#b4bfbc;--ink-3:#8a9693;--line:#26302d;
+--accent:#3fb8ac;--accent-bg:#14302c;--ok:#5cc983;--ok-bg:#132a1c;--warn:#e0a84a;--warn-bg:#2d2312;--bad:#f2766b;--bad-bg:#331816;--info:#7ea6f0;--info-bg:#152238}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.45 var(--sans)}
+header{display:flex;align-items:center;gap:14px;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:2}
+.brand{font-weight:650;letter-spacing:-.01em;display:flex;align-items:center;gap:8px}.mark{width:18px;height:18px;border-radius:5px;background:var(--accent)}
+.root{font:12px var(--mono);color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1}
+.live{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-2)}.dot{width:8px;height:8px;border-radius:50%;background:var(--ok)}
+.dot.off{background:var(--bad)}.dot.pulse{animation:p 1.4s infinite}@keyframes p{50%{opacity:.35}}
+main{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;padding:16px 20px;max-width:1500px;margin:0 auto}
+@media (max-width:1000px){main{grid-template-columns:minmax(0,1fr)}}
+h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin:0 0 8px;font-weight:600}
+.board{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}@media (max-width:760px){.board{grid-template-columns:minmax(0,1fr)}}
+.col{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px;min-height:120px}
+.col h3{margin:0 0 8px;font-size:12px;font-weight:600;display:flex;justify-content:space-between;color:var(--ink-2)}
+.card{border:1px solid var(--line);border-radius:8px;padding:9px 10px;margin-bottom:8px;cursor:pointer;background:var(--panel);transition:border-color .15s}
+.card:hover,.card:focus-visible{border-color:var(--accent);outline:none}.card.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-bg)}
+.card .t{font-weight:550;margin-bottom:5px}.meta{display:flex;flex-wrap:wrap;gap:5px;align-items:center;font-size:11.5px;color:var(--ink-3)}
+.tag{font:11px var(--mono);padding:1px 6px;border-radius:5px;background:var(--bg);border:1px solid var(--line);color:var(--ink-2)}
+.st{font-size:11px;font-weight:600;padding:1px 7px;border-radius:99px}
+.st.in_progress{background:var(--info-bg);color:var(--info)}.st.submitted,.st.verified{background:var(--accent-bg);color:var(--accent)}
+.st.changes_requested,.st.blocked,.st.escalated{background:var(--warn-bg);color:var(--warn)}.st.accepted,.st.merged{background:var(--ok-bg);color:var(--ok)}
+.st.cancelled{background:var(--bad-bg);color:var(--bad)}.st.ready{background:var(--bg);color:var(--ink-2);border:1px solid var(--line)}
+.prov{font-weight:600}.prov.claude{color:#b4561f}.prov.codex{color:#2b6cb0}.prov.cursor{color:var(--accent)}.prov.human{color:#7a3fb0}.prov.system{color:var(--ink-3)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:14px}
+.bud{margin-bottom:12px}.bud .row{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px}
+.bar{height:8px;border-radius:99px;background:var(--bg);border:1px solid var(--line);overflow:hidden;position:relative}
+.bar i{display:block;height:100%;background:var(--accent)}.bar i.warn{background:var(--warn)}.bar i.bad{background:var(--bad)}
+.bar b{position:absolute;top:0;bottom:0;width:1px;background:var(--ink-3)}.sub{font-size:11.5px;color:var(--ink-3)}
+.feed{max-height:420px;overflow:auto;font-size:12px}.ev{display:grid;grid-template-columns:58px minmax(0,1fr);gap:8px;padding:5px 0;border-bottom:1px dashed var(--line)}
+.ev time{font:11px var(--mono);color:var(--ink-3)}.ev .k{font:11.5px var(--mono)}
+.detail{margin-top:16px}.detail .panel{padding:14px 16px}.goal{white-space:pre-wrap;color:var(--ink-2);max-width:90ch}
+.f{border-left:3px solid var(--line);padding:6px 10px;margin:8px 0;background:var(--bg);border-radius:0 6px 6px 0}
+.f.output{border-color:var(--accent)}.f.decision{border-color:var(--ok)}.f.blocker{border-color:var(--bad)}.f.question{border-color:var(--warn)}
+.f .body{white-space:pre-wrap;max-width:100ch;margin-top:3px}.ev2{font:11.5px var(--mono);color:var(--ink-2);padding:2px 0}
+table{width:100%;border-collapse:collapse;font-size:12px}td,th{text-align:left;padding:4px 6px;border-bottom:1px solid var(--line)}th{color:var(--ink-3);font-weight:600}
+td.n{text-align:right;font:12px var(--mono)}.empty{color:var(--ink-3);font-size:12px;padding:6px 0}
+.close{float:right;border:1px solid var(--line);background:var(--panel);color:var(--ink-2);border-radius:6px;padding:2px 8px;cursor:pointer}
+.appr{background:var(--warn-bg);color:var(--warn);border-radius:8px;padding:8px 10px;margin-bottom:12px;font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><span class="mark" aria-hidden="true"></span>agentsys</div>
+  <div class="root" id="root">—</div>
+  <div class="live" aria-live="polite"><span class="dot pulse" id="dot"></span><span id="livetxt">connecting…</span></div>
+</header>
+<main>
+  <section aria-label="Tasks">
+    <div id="appr"></div>
+    <h2>Tasks</h2>
+    <div class="board" id="board"></div>
+    <div class="detail" id="detail"></div>
+  </section>
+  <aside>
+    <div class="panel"><h2>Budgets (separate per account)</h2><div id="budgets"></div></div>
+    <div class="panel"><h2>Recent runs</h2><div id="runs"></div></div>
+    <div class="panel"><h2>Activity</h2><div class="feed" id="feed"></div></div>
+  </aside>
+</main>
+<script>
+const COLS = [
+  ["Working", ["in_progress"]],
+  ["Checking", ["submitted", "verified", "changes_requested"]],
+  ["Done", ["accepted", "merged"]],
+  ["Queue / other", ["ready", "blocked", "escalated", "cancelled"]],
+];
+let selected = location.hash.slice(1) || null, lastSig = "", detailSig = "";
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt = n => n == null ? "—" : Number(n).toLocaleString();
+const tm = ts => new Date(ts * 1000).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit", second: "2-digit"});
+const who = a => { const p = String(a || "").split(":"); return `<span class="prov ${esc(p[0])}">${esc(p[0])}</span>${p[1] ? `<span class="sub">:${esc(p.slice(1).join(":"))}</span>` : ""}`; };
+const ago = ts => { const s = Math.max(0, Math.round(Date.now() / 1000 - ts)); return s < 60 ? s + "s" : s < 3600 ? Math.round(s / 60) + "m" : Math.round(s / 3600) + "h"; };
+
+function card(t) {
+  const fc = t.finding_counts || {}, n = Object.values(fc).reduce((a, b) => a + b, 0);
+  const lease = t.lease_expires ? `<span class="tag">lease ${Math.max(0, Math.round(t.lease_expires - Date.now() / 1000))}s</span>` : "";
+  return `<div class="card${t.id === selected ? " sel" : ""}" tabindex="0" role="button" data-id="${esc(t.id)}">
+    <div class="t">${esc(t.title)}</div>
+    <div class="meta"><span class="st ${esc(t.state)}">${esc(t.state.replace("_", " "))}</span><span class="tag">${esc(t.kind)}</span>
+    ${t.owner ? who(t.owner) : ""}${lease}${n ? `<span class="sub">${n} finding${n > 1 ? "s" : ""}</span>` : ""}
+    ${t.attempts > 1 ? `<span class="tag">attempt ${t.attempts}</span>` : ""}</div></div>`;
+}
+
+function render(s) {
+  document.getElementById("root").textContent = s.root;
+  const pend = s.approvals.filter(a => a.status === "pending");
+  document.getElementById("appr").innerHTML = pend.map(a => `<div class="appr">Approval #${a.id} pending: ${esc(a.action)} ${esc(a.task_id)} — ${esc(a.reason)}. Run <code>agentsys --as human:you approve ${a.id}</code></div>`).join("");
+  document.getElementById("board").innerHTML = COLS.map(([name, states]) => {
+    const ts = s.tasks.filter(t => states.includes(t.state)).sort((a, b) => b.updated_at - a.updated_at);
+    return `<div class="col"><h3>${name}<span>${ts.length}</span></h3>${ts.map(card).join("") || '<div class="empty">none</div>'}</div>`;
+  }).join("");
+  document.getElementById("budgets").innerHTML = s.budgets.map(b => {
+    if (b.limit == null) return `<div class="bud"><div class="row"><b>${esc(b.provider)}/${esc(b.account)}</b><span>${fmt(b.used)} used</span></div><div class="sub">no limit set</div></div>`;
+    const pct = Math.min(100, b.used / b.limit * 100), cls = pct >= 95 ? "bad" : pct >= 80 ? "warn" : "";
+    return `<div class="bud"><div class="row"><b>${esc(b.provider)}/${esc(b.account)}</b><span>${fmt(b.used)} / ${fmt(b.limit)}</span></div>
+      <div class="bar" title="${b.pct}% used; marker = reserve line"><i class="${cls}" style="width:${pct}%"></i><b style="left:${100 - b.reserve_pct}%"></b></div>
+      <div class="sub">${b.pct}% · ${esc(b.source)}${b.used > b.limit ? " · <b style='color:var(--bad)'>over limit — dispatch refused</b>" : ""}</div></div>`;
+  }).join("") || '<div class="empty">no budgets</div>';
+  document.getElementById("runs").innerHTML = s.runs.length ? `<table><tr><th>#</th><th>agent</th><th>task</th><th class="n">tokens</th></tr>${s.runs.slice(0, 10).map(r => {
+    const tot = [r.tokens_in, r.tokens_out, r.tokens_cached].every(x => x == null) ? null : (r.tokens_in || 0) + (r.tokens_out || 0) + (r.tokens_cached || 0);
+    return `<tr><td>${r.id}</td><td>${who(r.adapter)} <span class="sub">${esc(r.model || "")}</span>${r.exit_code ? ` <span class="st cancelled">exit ${r.exit_code}</span>` : ""}</td><td class="sub">${esc(r.task_id || "")}</td><td class="n" title="${esc(r.usage_source)}">${tot == null ? "~" + fmt(r.tokens_estimate) : fmt(tot)}</td></tr>`; }).join("")}</table>` : '<div class="empty">no runs</div>';
+  document.getElementById("feed").innerHTML = s.events.map(e => `<div class="ev"><time>${tm(e.ts)}</time><div>${who(e.actor)} <span class="k">${esc(e.kind)}</span> <span class="sub">${esc(e.task_id || "")}</span></div></div>`).join("");
+}
+
+async function renderDetail() {
+  const el = document.getElementById("detail");
+  if (!selected) { el.innerHTML = ""; detailSig = ""; return; }
+  const r = await fetch("/api/task?id=" + encodeURIComponent(selected));
+  if (!r.ok) { el.innerHTML = ""; return; }
+  const d = await r.json(), sig = JSON.stringify([d.task.updated_at, d.findings.length, d.events.length]);
+  if (sig === detailSig) return;
+  detailSig = sig;
+  const t = d.task;
+  el.innerHTML = `<div class="panel"><button class="close" id="close">Close</button>
+    <h2>${esc(t.id)}</h2><div style="font-size:15px;font-weight:600;margin-bottom:6px">${esc(t.title)}</div>
+    <div class="meta" style="margin-bottom:10px"><span class="st ${esc(t.state)}">${esc(t.state)}</span><span class="tag">${esc(t.kind)}</span>
+    ${t.allowed_paths.map(p => `<span class="tag">${esc(p)}</span>`).join("")}${t.branch ? `<span class="tag">${esc(t.branch)}</span>` : ""}
+    ${t.deps.map(x => `<span class="tag">needs ${esc(x)}</span>`).join("")}</div>
+    ${t.goal ? `<div class="goal">${esc(t.goal)}</div>` : ""}
+    <h2 style="margin-top:14px">Findings & handoffs (${d.findings.length})</h2>
+    ${d.findings.map(f => `<div class="f ${esc(f.kind)}"><div class="meta">${who(f.author)} <span class="tag">${esc(f.kind)}</span><span>${tm(f.ts)}</span>
+      ${f.evidence.map(x => `<span class="tag">${esc(x)}</span>`).join("")}</div><div class="body">${esc(f.body)}</div></div>`).join("") || '<div class="empty">none yet</div>'}
+    <h2 style="margin-top:14px">Checkpoints</h2>
+    ${d.checkpoints.map(c => `<div class="ev2">${tm(c.ts)} ${c.verified ? "✓ verified" : "· unverified"} ${esc((c.commit_sha || "").slice(0, 10))} — ${esc(c.summary)} (${esc(c.author)})</div>`).join("") || '<div class="empty">none</div>'}
+    <h2 style="margin-top:14px">Audit trail</h2>
+    ${d.events.map(e => `<div class="ev2">${tm(e.ts)} ${esc(e.actor)} ${esc(e.kind)} ${esc(JSON.stringify(Object.fromEntries(Object.entries(e.payload).filter(([k]) => k !== "results"))))}</div>`).join("")}</div>`;
+  document.getElementById("close").onclick = () => { selected = null; history.replaceState(null, "", location.pathname); tick(true); };
+}
+
+async function tick(force) {
+  try {
+    const r = await fetch("/api/state");
+    const s = await r.json(), sig = JSON.stringify([s.tasks.map(t => [t.id, t.state, t.updated_at, t.lease_expires]), s.events[0]?.id, s.budgets]);
+    if (force || sig !== lastSig) { render(s); lastSig = sig; }
+    await renderDetail();
+    document.getElementById("dot").className = "dot pulse";
+    const active = s.tasks.filter(t => t.state === "in_progress").length;
+    document.getElementById("livetxt").textContent = `live · ${active} working · updated ${new Date().toLocaleTimeString()}`;
+  } catch (e) {
+    document.getElementById("dot").className = "dot off";
+    document.getElementById("livetxt").textContent = "disconnected — is `agentsys ui` running?";
+  }
+}
+document.addEventListener("click", e => { const c = e.target.closest(".card"); if (c) { selected = c.dataset.id; history.replaceState(null, "", "#" + selected); detailSig = ""; tick(true); } });
+document.addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.classList?.contains("card")) { e.preventDefault(); e.target.click(); } if (e.key === "Escape" && selected) document.getElementById("close")?.click(); });
+tick(true); setInterval(tick, 2000);
+</script>
+</body>
+</html>

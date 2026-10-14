@@ -21,3 +21,6 @@ agentsys = "agentsys.cli:main"
 
 [tool.setuptools]
 packages = ["agentsys"]
+
+[tool.setuptools.package-data]
+agentsys = ["ui.html"]
