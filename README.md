@@ -1,0 +1,113 @@
+# agentsys
+
+Durable, auditable task coordination for multiple coding agents (Cursor, Claude Code, Codex, or a human), across different providers and accounts.
+
+Agents built by different companies can't talk to each other directly. agentsys doesn't pretend they can. It gives them **one shared task store** and **one CLI**. Any agent that can run a shell command can claim a task, hand findings to another agent, checkpoint, and submit. Nothing counts as done until a verification pipeline and an independent reviewer accept it.
+
+- **Zero dependencies.** Python ≥ 3.9 standard library, SQLite, and git.
+- **Survives crashes.** Claims are time-limited leases. If an agent dies, its task returns to the queue, and the next agent gets a brief that includes the partial work left behind.
+- **Isolated.** Each implementation task runs in its own git worktree and branch. Overlapping file scopes can't be worked on concurrently, and merges are dry-run first.
+- **Honest about usage.** Token usage is tracked per provider *and* per account, exactly as each CLI reports it. Accounts are never pooled. Runs with no reported usage count at their estimate, never as zero.
+- **Human in control.** Merging requires an approval granted by a `human:` actor.
+
+## Install
+
+```sh
+git clone <this repo> ~/agentsys
+export PATH="$HOME/agentsys/bin:$PATH"     # or: pip install -e ~/agentsys
+agentsys --version
+```
+
+## Quick start
+
+Run inside any git repository. The store lives at `<repo>/.agent-system/state.db`; add `.agent-system/` to `.gitignore`.
+
+```sh
+export AGENTSYS_ACTOR=human:alice
+agentsys init
+agentsys task add "Locate the settings page" --kind research
+agentsys task add "Add a dark-mode toggle" --path "src/settings/*" --check "npm test" --goal "..."
+
+# Agent A (e.g. in Cursor) researches and hands off a finding
+agentsys --as cursor:alice:researcher claim t-1234abcd
+agentsys --as cursor:alice:researcher finding t-1234abcd "Settings live in src/settings/page.jsx" \
+         --evidence src/settings/page.jsx:12
+agentsys --as cursor:alice:researcher submit t-1234abcd "located"
+
+# Agent B (e.g. Codex) implements in an isolated worktree, starting from A's findings
+agentsys --as codex:alice:implementer claim t-5678efgh     # prints the worktree path
+agentsys resume t-5678efgh                                  # self-contained brief: goal, scope, findings, checkpoint
+# ...edit files in the worktree...
+agentsys --as codex:alice:implementer submit t-5678efgh "toggle added"
+
+agentsys --as system:verifier verify t-5678efgh             # scope, syntax, secret scan, --check commands
+agentsys --as claude:bob:reviewer review t-5678efgh approve --reason "diff matches goal"
+agentsys --as human:alice merge t-5678efgh                  # requests approval the first time
+agentsys --as human:alice approve 1 && agentsys --as human:alice merge t-5678efgh --cleanup
+```
+
+### Headless dispatch (optional, spends real quota)
+
+```sh
+agentsys adapters                                   # what's installed (also finds CLIs bundled in IDE extensions)
+agentsys budget set anthropic bob --limit 1000000   # required before any real dispatch
+agentsys dispatch t-5678efgh --adapter claude --account bob --max-usd 2
+agentsys dispatch t-5678efgh --adapter mock         # deterministic, free, labelled [MOCK]
+agentsys budget show
+```
+
+## Task states
+
+```
+ready → in_progress → submitted → verified → accepted → merged
+          │   ▲            │          │
+          │   └ lease expiry (attempts < max) ┘ → escalated (human requeues)
+          ▼                ▼          ▼
+       blocked     changes_requested ←┘ (verify fail / review reject) → claim again
+```
+
+| Rule | Enforced by |
+|---|---|
+| Only the owner can submit or release | `store.transition(owner_only=True)` |
+| Dependencies must be accepted/merged before claim | `Store.claim` |
+| Overlapping `--path` scopes can't both be in progress | `Store.claim` |
+| Anyone who claimed or checkpointed a task can't review it | `cmd_review` |
+| Only `human:` actors can grant approvals | `Store.decide_approval` |
+| Every state change writes an audit event in the same transaction | `Store._move` |
+
+## Verification pipeline
+
+| Check | What it does |
+|---|---|
+| scope | every changed file matches the task's `--path` globs |
+| syntax | `bun build --no-bundle` for JS/JSX/TS (if bun is installed), `py_compile`, JSON parse |
+| secrets | regex scan of *added* lines and forbidden filenames (`.env`, `*.pem`, …). Matches are reported by type, never echoed. |
+| commands | each `--check` command, run in the worktree |
+| evidence | research tasks need at least one finding with `--evidence` |
+
+## Adapters
+
+| Adapter | CLI | Usage data | Sandbox defaults |
+|---|---|---|---|
+| `mock` | built in | zero, labelled `mock` | n/a |
+| `cursor` | `cursor-agent -p --output-format json` | provider-reported `usage` | `--sandbox enabled`; `--mode ask` for research |
+| `claude` | `claude -p --output-format json` | provider-reported `usage` + `total_cost_usd` | `--allowedTools` limited to Read/Glob/Grep(/Edit/Write) |
+| `codex` | `codex exec --json` | provider-reported `turn.completed.usage` | `--sandbox read-only` / `workspace-write` |
+
+Adapters strip provider API-key variables from the child environment, so a run never silently switches from a subscription login to pay-per-token API billing.
+
+## What agentsys is not
+
+- **Not a security boundary.** Actor identities are self-declared, and the store is a local file. It prevents agent *mistakes*, not malicious local processes. See [SECURITY.md](SECURITY.md).
+- **Not a quota pool.** It never combines, transfers or rotates accounts to get around provider limits.
+- **Not able to see interactive IDE usage.** Usage in chat panels is invisible unless self-reported with `agentsys usage add`.
+
+## Development
+
+```sh
+python3 -m unittest discover -s tests -v
+```
+
+## License
+
+MIT. See [LICENSE](LICENSE).
