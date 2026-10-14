@@ -23,4 +23,4 @@ agentsys = "agentsys.cli:main"
 packages = ["agentsys"]
 
 [tool.setuptools.package-data]
-agentsys = ["ui.html"]
+agentsys = ["ui.html", "static/icons/*.svg"]

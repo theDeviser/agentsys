@@ -129,11 +129,19 @@ class Store:
         self.db.execute("PRAGMA busy_timeout=10000")
         self.db.execute("PRAGMA foreign_keys=ON")
         self.db.executescript(DDL)
+        self._migrate()
         self.db.execute("INSERT OR IGNORE INTO meta VALUES ('schema_version', ?)", (str(SCHEMA_VERSION),))
         try:
             os.chmod(self.path, 0o600)
         except OSError:
             pass
+
+    def _migrate(self):
+        cols = {r["name"] for r in self.db.execute("PRAGMA table_info(budgets)")}
+        if "per_run_limit" not in cols:
+            self.db.execute("ALTER TABLE budgets ADD COLUMN per_run_limit INTEGER")
+        if "window_hours" not in cols:
+            self.db.execute("ALTER TABLE budgets ADD COLUMN window_hours REAL")
 
     def close(self):
         self.db.close()
@@ -396,14 +404,20 @@ class Store:
             q, args = q + " AND account=?", args + [account]
         return [dict(r) for r in self.db.execute(q + " ORDER BY id", args)]
 
-    def set_budget(self, provider, account, limit_tokens, actor, reserve_pct=20.0, source="manual", note=None):
+    def set_budget(self, provider, account, limit_tokens, actor, reserve_pct=20.0, source="manual", note=None,
+                   per_run_limit=None, window_hours=None):
+        """limit_tokens=0 means tracking only (no cap). window_hours limits usage counting to a rolling window."""
         with self.tx() as db:
-            db.execute("INSERT INTO budgets VALUES (?,?,?,?,?,?,?) ON CONFLICT(provider,account) DO UPDATE SET "
+            db.execute("INSERT INTO budgets (provider,account,limit_tokens,reserve_pct,source,note,updated_at,"
+                       "per_run_limit,window_hours) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(provider,account) DO UPDATE SET "
                        "limit_tokens=excluded.limit_tokens, reserve_pct=excluded.reserve_pct, source=excluded.source, "
-                       "note=excluded.note, updated_at=excluded.updated_at",
-                       (provider, account, int(limit_tokens), reserve_pct, source, note, now()))
+                       "note=excluded.note, updated_at=excluded.updated_at, per_run_limit=excluded.per_run_limit, "
+                       "window_hours=excluded.window_hours",
+                       (provider, account, int(limit_tokens), reserve_pct, source, note, now(), per_run_limit,
+                        window_hours))
             self._event(db, actor, None, "budget.set", {"provider": provider, "account": account,
-                                                        "limit_tokens": int(limit_tokens), "reserve_pct": reserve_pct})
+                                                        "limit_tokens": int(limit_tokens), "reserve_pct": reserve_pct,
+                                                        "per_run_limit": per_run_limit, "window_hours": window_hours})
 
     def budgets(self) -> list:
         return [dict(r) for r in self.db.execute("SELECT * FROM budgets ORDER BY provider, account")]
