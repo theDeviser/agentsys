@@ -430,6 +430,14 @@ def cmd_usage_add(args):
     print(f"recorded {args.tokens:,} self-reported tokens for {args.provider}/{args.account}")
 
 
+def cmd_ui(args):
+    from .ui import serve
+    st = open_store(args)
+    path = st.path
+    st.close()
+    serve(path, port=args.port)
+
+
 def cmd_adapters(args):
     for a in ADAPTERS.values():
         d = a.detect()
@@ -551,6 +559,7 @@ def build_parser():
     ua.add_argument("--model")
     ua.add_argument("--note")
     sp("adapters", cmd_adapters, "detect available agent CLIs")
+    sp("ui", cmd_ui, "read-only live dashboard on 127.0.0.1").add_argument("--port", type=int, default=8791)
     return p
 
 

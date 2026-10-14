@@ -294,6 +294,27 @@ class TestEndToEnd(GitRepo):
         self.assertIn(f"Handoff from dependency {a}", brief)
         self.assertIn("Entry is app/ui.jsx", brief)
 
+    def test_dashboard_snapshot_and_host_check(self):
+        import threading
+        import urllib.error
+        import urllib.request
+        from http.client import HTTPConnection
+        from agentsys import ui
+        tid = self.cli("task", "add", "Dash", "--kind", "research", actor="human:v").stdout.strip()
+        st = self.store()
+        snap = ui.snapshot(st)
+        self.assertEqual(snap["tasks"][0]["id"], tid)
+        self.assertEqual(ui.task_detail(st, tid)["task"]["title"], "Dash")
+        port = 18791
+        t = threading.Thread(target=ui.serve, args=(st.path,), kwargs={"port": port}, daemon=True)
+        t.start()
+        time.sleep(0.4)
+        body = json.loads(urllib.request.urlopen(f"http://127.0.0.1:{port}/api/state").read())
+        self.assertEqual(body["tasks"][0]["id"], tid)
+        c = HTTPConnection("127.0.0.1", port)
+        c.request("GET", "/api/state", headers={"Host": "evil.example"})
+        self.assertEqual(c.getresponse().status, 403)
+
     def test_works_from_inside_a_worktree(self):
         tid = self.cli("task", "add", "W", "--path", "docs/", actor="human:v").stdout.strip()
         wt = Path(self.cli("claim", tid, actor="a").stdout.split("work in: ")[1].strip())
