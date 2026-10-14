@@ -316,6 +316,12 @@ def brief(st, tid) -> str:
         lines.append(f"- {new}[{f['kind']}] {f['author']}: {f['body'][:600]}{ev}")
     if not fs:
         lines.append("(none)")
+    for d in t["deps"]:
+        dt = st.get(d)
+        lines += ["", f"## Handoff from dependency {d}: {dt['title']} ({dt['state']})"]
+        for f in st.findings(d)[-8:]:
+            ev = f" (evidence: {', '.join(f['evidence'])})" if f["evidence"] else ""
+            lines.append(f"- [{f['kind']}] {f['author']}: {f['body'][:600]}{ev}")
     return "\n".join(lines)
 
 

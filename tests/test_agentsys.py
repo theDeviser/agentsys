@@ -272,6 +272,19 @@ class TestEndToEnd(GitRepo):
         self.assertEqual(self.store().get(tid)["state"], "ready")
         self.assertEqual(self.store().runs(), [])
 
+    def test_dependency_findings_flow_into_brief(self):
+        a = self.cli("task", "add", "Upstream", "--kind", "research", actor="human:v").stdout.strip()
+        b = self.cli("task", "add", "Downstream", "--kind", "research", "--dep", a, actor="human:v").stdout.strip()
+        self.cli("claim", a, actor="claude:h:researcher")
+        self.cli("finding", a, "Entry is app/ui.jsx", "--evidence", "app/ui.jsx:1", actor="claude:h:researcher")
+        self.cli("submit", a, "done", actor="claude:h:researcher")
+        self.cli("verify", a, actor="system:verifier")
+        self.cli("review", a, "approve", "--reason", "checked", actor="human:v")
+        self.cli("claim", b, actor="codex:v:checker")
+        brief = self.cli("resume", b).stdout
+        self.assertIn(f"Handoff from dependency {a}", brief)
+        self.assertIn("Entry is app/ui.jsx", brief)
+
     def test_works_from_inside_a_worktree(self):
         tid = self.cli("task", "add", "W", "--path", "docs/", actor="human:v").stdout.strip()
         wt = Path(self.cli("claim", tid, actor="a").stdout.split("work in: ")[1].strip())
