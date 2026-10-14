@@ -192,12 +192,14 @@ class CodexAdapter(Adapter):
         if model:
             cmd += ["--model", model]
         code, out, err, _ = self._exec(cmd + ["-"], workdir, timeout, stdin=prompt)
-        text, usage = "", {}
+        text, usage, errors = "", {}, []
         for line in out.splitlines():
             try:
                 ev = json.loads(line)
             except json.JSONDecodeError:
                 continue
+            if ev.get("type") == "turn.failed":
+                errors.append(_error_message((ev.get("error") or {}).get("message")))
             if ev.get("type") == "turn.completed" and isinstance(ev.get("usage"), dict):
                 for k, v in ev["usage"].items():
                     if isinstance(v, int):
@@ -206,7 +208,7 @@ class CodexAdapter(Adapter):
             if ev.get("type") == "item.completed" and item.get("type") == "agent_message":
                 text = item.get("text") or text
         if not text and code != 0:
-            text = (err or out).strip()[-800:]
+            text = "; ".join(errors) or _quiet(err)[-800:] or "codex exited with no output"
         cached = usage.get("cached_input_tokens")
         return RunResult(
             text=text.strip(), exit_code=code,
@@ -217,6 +219,19 @@ class CodexAdapter(Adapter):
 
 def _n(v):
     return v if isinstance(v, int) else 0
+
+
+def _error_message(raw):
+    """Codex nests the API error as a JSON string; pull out the human-readable part."""
+    try:
+        return json.loads(raw)["error"]["message"]
+    except (TypeError, ValueError, KeyError):
+        return str(raw or "unknown error")
+
+
+def _quiet(stderr):
+    """Drop MCP transport chatter (unauthenticated servers) so the real error is visible."""
+    return "\n".join(l for l in (stderr or "").splitlines() if "rmcp::" not in l).strip()
 
 
 ADAPTERS = {a.name: a for a in (MockAdapter(), CursorAdapter(), ClaudeAdapter(), CodexAdapter())}

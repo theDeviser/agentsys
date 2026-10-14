@@ -153,6 +153,15 @@ class TestBudget(GitRepo):
         self.assertEqual(budget.used_tokens(st, "openai", "b"), 160)
 
 
+class TestAdapterParsing(unittest.TestCase):
+    def test_codex_error_and_noise(self):
+        from agentsys.adapters import _error_message, _quiet
+        raw = json.dumps({"type": "error", "status": 400, "error": {"message": "model not supported"}})
+        self.assertEqual(_error_message(raw), "model not supported")
+        self.assertEqual(_error_message("plain"), "plain")
+        self.assertEqual(_quiet("x ERROR rmcp::transport::worker: noise\nreal problem"), "real problem")
+
+
 class TestEndToEnd(GitRepo):
     def test_two_roles_collaborate_through_shared_state(self):
         self.cli("init", actor="human:v")
