@@ -143,6 +143,24 @@ class TestBudget(GitRepo):
             budget.check_dispatch(st, claude, "acct", est=90_000)  # eats into the 20% reserve
         budget.check_dispatch(st, claude, "acct", role="review", est=90_000)  # reviews may use it
 
+    def test_per_run_cap_window_and_track_only(self):
+        st = self.store()
+        claude, codex = ADAPTERS["claude"], ADAPTERS["codex"]
+        st.set_budget("anthropic", "h", 1_000_000, "human:v", per_run_limit=500)
+        with self.assertRaises(budget.BudgetError) as e:
+            budget.check_dispatch(st, claude, "h", est=600)
+        self.assertIn("per-run cap", str(e.exception))
+        budget.check_dispatch(st, claude, "h", est=400)
+        st.set_budget("openai", "v", 0, "human:v", window_hours=5)  # no cap, 5h window
+        st.record_run(ts_start=time.time() - 6 * 3600, adapter="codex", provider="openai", account="v",
+                      usage_source="provider-reported", tokens_in=9_000_000, tokens_out=0, tokens_cached=0)
+        st.record_run(ts_start=time.time(), adapter="codex", provider="openai", account="v",
+                      usage_source="provider-reported", tokens_in=100, tokens_out=0, tokens_cached=0)
+        s = budget.summary(st, "openai", "v")
+        self.assertEqual((s["used"], s["used_all_time"], s["limit"]), (100, 9_000_100, None))
+        budget.check_dispatch(st, codex, "v", est=50_000_000)  # track-only never refuses
+        self.assertTrue(budget.post_run_alerts(st, "anthropic", "h", 0, run_tokens=900))
+
     def test_unreported_usage_counts_at_estimate_and_accounts_are_separate(self):
         st = self.store()
         st.record_run(ts_start=0, adapter="codex", provider="openai", account="a", usage_source="unknown",

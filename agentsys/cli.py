@@ -266,9 +266,7 @@ def cmd_status(args):
     if pending:
         print(f"pending approvals: {', '.join('#' + str(a['id']) for a in pending)}")
     for b in st.budgets():
-        s = budget.summary(st, b["provider"], b["account"])
-        print(f"budget {s['provider']}/{s['account']}: {s['used']:,}/{s['limit']:,} tokens ({s['pct']}%), "
-              f"reserve {s['reserve_pct']:g}% [{s['source']}]")
+        print("budget " + _budget_line(budget.summary(st, b["provider"], b["account"])))
 
 
 def cmd_log(args):
@@ -367,7 +365,7 @@ def cmd_dispatch(args):
     else:
         workdir = root_of(st)
     prompt = brief(st, t["id"]) + "\n" + AGENT_RULES
-    before = budget.used_tokens(st, adapter.provider, account)
+    before = budget.summary(st, adapter.provider, account)["used"]
     started = time.time()
     st.event(actor, t["id"], "dispatch.start", {"adapter": adapter.name, "estimate": est, "workdir": str(workdir)})
     res = adapter.run(prompt, workdir, write=write, timeout=args.timeout, model=args.model,
@@ -381,7 +379,7 @@ def cmd_dispatch(args):
     st.add_finding(t["id"], actor, res.text[:4000] or "(empty output)", kind="output", evidence=evidence)
     usage = f"{res.total_tokens:,} tokens" if res.total_tokens is not None else "usage not reported"
     print(f"run {run_id}: exit {res.exit_code}, {usage} [{res.usage_source}]")
-    for a in budget.post_run_alerts(st, adapter.provider, account, before):
+    for a in budget.post_run_alerts(st, adapter.provider, account, before, run_tokens=res.total_tokens):
         print(f"ALERT: {a}", file=sys.stderr)
     if res.exit_code != 0:
         st.add_finding(t["id"], actor, f"Run {run_id} failed (exit {res.exit_code}); task released", kind="blocker",
@@ -393,11 +391,25 @@ def cmd_dispatch(args):
     print(f"{t['id']} -> {t['state']}; next: agentsys verify {t['id']}")
 
 
+def _budget_line(s):
+    win = f" in last {s['window_hours']:g}h" if s.get("window_hours") else ""
+    cap = f"{s['used']:,} / {s['limit']:,} tokens{win} ({s['pct']}%)" if s.get("limit") else \
+        f"{s['used']:,} tokens{win}, no total cap"
+    extra = []
+    if s.get("per_run_limit"):
+        extra.append(f"per-run cap {s['per_run_limit']:,}")
+    if s.get("spend_usd") is not None:
+        extra.append(f"${s['spend_usd']:.4f} reported")
+    if s.get("source"):
+        extra.append(s["source"])
+    return f"{s['provider']}/{s['account']}: {cap}" + (f" [{', '.join(extra)}]" if extra else "")
+
+
 def cmd_budget_set(args):
     st = open_store(args)
     st.set_budget(args.provider, args.account, args.limit, actor_of(args), reserve_pct=args.reserve,
-                  source=args.source, note=args.note)
-    print(f"budget {args.provider}/{args.account} = {args.limit:,} tokens (reserve {args.reserve:g}%)")
+                  source=args.source, note=args.note, per_run_limit=args.per_run, window_hours=args.window_hours)
+    print("budget " + _budget_line(budget.summary(st, args.provider, args.account)))
 
 
 def cmd_budget_show(args):
@@ -408,17 +420,10 @@ def cmd_budget_show(args):
         if (r["provider"], r["account"]) not in seen and r["provider"] != "mock":
             seen.add((r["provider"], r["account"]))
             rows.append({"provider": r["provider"], "account": r["account"]})
-    total_limit = 0
     for b in rows:
         s = budget.summary(st, b["provider"], b["account"])
-        if s["limit"] is None:
-            print(f"{s['provider']}/{s['account']}: used {s['used']:,} tokens, NO LIMIT SET")
-            continue
-        total_limit += s["limit"]
-        print(f"{s['provider']}/{s['account']}: {s['used']:,} / {s['limit']:,} tokens ({s['pct']}%), "
-              f"remaining {s['remaining']:,}, reserve {s['reserve_pct']:g}% [{s['source']}]")
-    if total_limit:
-        print(f"sum of separate per-account limits: {total_limit:,} (not a shared pool)")
+        print(_budget_line(s) if s.get("source") else f"{s['provider']}/{s['account']}: used {s['used']:,}, NO BUDGET SET")
+    print("each account is tracked separately; limits are never pooled")
 
 
 def cmd_usage_add(args):
@@ -433,9 +438,14 @@ def cmd_usage_add(args):
 def cmd_ui(args):
     from .ui import serve
     st = open_store(args)
-    path = st.path
+    paths = [st.path]
     st.close()
-    serve(path, port=args.port)
+    for p in args.also or []:
+        db = Path(p).expanduser().resolve() / ".agent-system" / "state.db"
+        if not db.exists():
+            die(f"no agentsys store at {db}; run `agentsys init` in that project first")
+        paths.append(db)
+    serve(paths, port=args.port)
 
 
 def cmd_adapters(args):
@@ -544,7 +554,9 @@ def build_parser():
     bs.set_defaults(fn=cmd_budget_set)
     bs.add_argument("provider")
     bs.add_argument("account")
-    bs.add_argument("--limit", type=int, required=True, help="token limit for this provider/account")
+    bs.add_argument("--limit", type=int, required=True, help="total token cap (0 = track only, no cap)")
+    bs.add_argument("--per-run", type=int, help="refuse any single run estimated above this many tokens")
+    bs.add_argument("--window-hours", type=float, help="count usage only within a rolling window (e.g. 5)")
     bs.add_argument("--reserve", type=float, default=20.0, help="%% held back for verification/review")
     bs.add_argument("--source", default="manual")
     bs.add_argument("--note")
@@ -559,7 +571,9 @@ def build_parser():
     ua.add_argument("--model")
     ua.add_argument("--note")
     sp("adapters", cmd_adapters, "detect available agent CLIs")
-    sp("ui", cmd_ui, "read-only live dashboard on 127.0.0.1").add_argument("--port", type=int, default=8791)
+    u = sp("ui", cmd_ui, "read-only live dashboard on 127.0.0.1")
+    u.add_argument("--port", type=int, default=8791)
+    u.add_argument("--also", action="append", metavar="PROJECT_DIR", help="also show another project's store")
     return p
 
 
