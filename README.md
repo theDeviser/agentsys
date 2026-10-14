@@ -56,6 +56,27 @@ agentsys dispatch t-5678efgh --adapter mock         # deterministic, free, label
 agentsys budget show
 ```
 
+Budgets are per provider account and never pooled. An account's usage is counted across every project on the
+machine (`~/.agentsys/ledger.db`, override with `AGENTSYS_LEDGER`), so a cap holds whichever repo dispatches.
+
+```sh
+agentsys budget set anthropic bob --limit 1000000 --per-run 200000   # total cap + refuse any single run above 200k
+agentsys budget set openai me --limit 0 --window-hours 5             # no cap; track usage over a rolling 5h window
+```
+
+Caps are checked before a run starts. CLIs can't be stopped mid-run on tokens, so a run that goes over is
+reported afterwards rather than prevented.
+
+### Dashboard
+
+```sh
+agentsys ui --also ~/other-project      # http://127.0.0.1:8791, read-only, follows Cursor's design tokens
+```
+
+It shows what each agent is doing now, how every task moved between agents, a run timeline with tokens, spend
+per account, and anything waiting on you, with the exact command to run next. Deep links: `?view=flow|runs|budget|activity`,
+`?task=<id>`, `?theme=light|dark`. Provider logos are from [LobeHub Icons](https://github.com/lobehub/lobe-icons) (MIT).
+
 ## Task states
 
 ```

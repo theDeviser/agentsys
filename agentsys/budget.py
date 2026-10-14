@@ -29,17 +29,17 @@ def _window_start(b):
 
 def used_tokens(store, provider, account, since=None) -> int:
     """Provider-reported totals; runs without usage data count at their pre-run estimate (never zero)."""
-    return sum(run_total(r) for r in store.runs(provider, account) if since is None or r["ts_start"] >= since)
+    return sum(run_total(r) for r in store.account_runs(provider, account) if since is None or r["ts_start"] >= since)
 
 
 def spend_usd(store, provider, account, since=None):
-    vals = [r["cost_usd"] for r in store.runs(provider, account)
+    vals = [r["cost_usd"] for r in store.account_runs(provider, account)
             if r["cost_usd"] is not None and (since is None or r["ts_start"] >= since)]
     return round(sum(vals), 4) if vals else None
 
 
 def estimate(store, adapter, account) -> int:
-    recent = [r for r in store.runs(adapter.provider, account) if r["adapter"] == adapter.name][-5:]
+    recent = [r for r in store.account_runs(adapter.provider, account) if r["adapter"] == adapter.name][-5:]
     vals = [run_total(r) for r in recent if r["usage_source"] == "provider-reported"]
     return int(sum(vals) / len(vals)) if vals else adapter.default_estimate
 
@@ -49,7 +49,8 @@ def summary(store, provider, account):
     since = _window_start(b)
     used = used_tokens(store, provider, account, since)
     out = {"provider": provider, "account": account, "used": used, "used_all_time": used_tokens(store, provider, account),
-           "spend_usd": spend_usd(store, provider, account), "runs": len(store.runs(provider, account)),
+           "spend_usd": spend_usd(store, provider, account), "runs": len(store.account_runs(provider, account)),
+           "projects": len({r["project"] for r in store.account_runs(provider, account)}),
            "limit": None, "per_run_limit": None, "window_hours": None}
     if not b:
         return out

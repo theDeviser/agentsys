@@ -40,8 +40,15 @@ class GitRepo(unittest.TestCase):
         sh(["git", "add", "-A"], self.root)
         sh(["git", "commit", "-q", "-m", "init"], self.root)
         self.env = {k: v for k, v in os.environ.items() if not k.startswith("AGENTSYS_")}
+        self.env["AGENTSYS_LEDGER"] = str(self.tmp / "ledger.db")
+        self._old_ledger = os.environ.get("AGENTSYS_LEDGER")
+        os.environ["AGENTSYS_LEDGER"] = self.env["AGENTSYS_LEDGER"]
 
     def tearDown(self):
+        if self._old_ledger is None:
+            os.environ.pop("AGENTSYS_LEDGER", None)
+        else:
+            os.environ["AGENTSYS_LEDGER"] = self._old_ledger
         shutil.rmtree(self.tmp, ignore_errors=True)
 
     def cli(self, *args, actor=None, ok=True, env=None, cwd=None):
@@ -142,6 +149,17 @@ class TestBudget(GitRepo):
         with self.assertRaises(budget.BudgetError):
             budget.check_dispatch(st, claude, "acct", est=90_000)  # eats into the 20% reserve
         budget.check_dispatch(st, claude, "acct", role="review", est=90_000)  # reviews may use it
+
+    def test_budget_is_shared_across_projects(self):
+        a = self.store()
+        b = Store(self.tmp / "other" / ".agent-system" / "state.db")
+        a.set_budget("anthropic", "h", 100_000, "human:v", reserve_pct=0)
+        self.assertEqual(b.budget("anthropic", "h")["limit_tokens"], 100_000)
+        b.record_run(ts_start=time.time(), adapter="claude", provider="anthropic", account="h",
+                     usage_source="provider-reported", tokens_in=90_000, tokens_out=0, tokens_cached=0)
+        with self.assertRaises(budget.BudgetError):
+            budget.check_dispatch(a, ADAPTERS["claude"], "h", est=20_000)
+        self.assertEqual((budget.summary(a, "anthropic", "h")["projects"], len(a.runs())), (1, 0))
 
     def test_per_run_cap_window_and_track_only(self):
         st = self.store()
