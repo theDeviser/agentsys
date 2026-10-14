@@ -71,7 +71,7 @@ svg.ico { width: 16px; height: 16px; flex: none; display: block; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 
 /* -------- shell -------- */
-.app { display: grid; height: 100vh; grid-template-rows: 35px 1fr 22px;
+.app { display: grid; height: 100vh; height: 100dvh; grid-template-rows: 35px minmax(0, 1fr) 22px;
   grid-template-columns: 48px var(--side-w, 272px) 1fr;
   grid-template-areas: "title title title" "act side main" "status status status"; }
 .app.side-hidden { --side-w: 0px; }
@@ -126,7 +126,7 @@ svg.ico { width: 16px; height: 16px; flex: none; display: block; }
 .row .meta { color: var(--text-4); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
 
 /* -------- editor area -------- */
-.main { grid-area: main; display: flex; flex-direction: column; min-width: 0; background: var(--bg-editor); }
+.main { grid-area: main; display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--bg-editor); }
 .tabs { height: 35px; flex: none; display: flex; background: var(--bg-chrome); border-bottom: 1px solid var(--stroke-3);
   overflow-x: auto; scrollbar-width: none; }
 .tab { position: relative; display: flex; align-items: center; gap: 6px; padding: 0 10px 0 12px; min-width: 0; max-width: 240px;
@@ -141,7 +141,7 @@ svg.ico { width: 16px; height: 16px; flex: none; display: block; }
 .crumbs { height: 22px; flex: none; display: flex; align-items: center; gap: 4px; padding: 0 16px; color: var(--text-3);
   font-size: var(--fs-sm); }
 .crumbs svg.ico { width: 14px; height: 14px; color: var(--text-4); }
-.content { flex: 1; overflow: auto; }
+.content { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
 .page { max-width: 1120px; margin: 0 auto; padding: 16px 28px 48px; }
 .page.wide { max-width: none; }
 
