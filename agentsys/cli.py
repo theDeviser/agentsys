@@ -487,7 +487,11 @@ def cmd_ui(args):
         if not db.exists():
             die(f"no agentsys store at {db}; run `agentsys init` in that project first")
         paths.append(db)
-    serve(paths, port=args.port)
+    actor = args.actor or os.environ.get("AGENTSYS_ACTOR") or ""
+    if not actor.startswith("human:"):
+        import getpass
+        actor = f"human:{getpass.getuser()}"
+    serve(paths, port=args.port, actor=actor, writable=not args.read_only)
 
 
 def cmd_adapters(args):
@@ -613,7 +617,8 @@ def build_parser():
     ua.add_argument("--model")
     ua.add_argument("--note")
     sp("adapters", cmd_adapters, "detect available agent CLIs")
-    u = sp("ui", cmd_ui, "read-only live dashboard on 127.0.0.1")
+    u = sp("ui", cmd_ui, "live dashboard on 127.0.0.1 (actions recorded as human:<you>)")
+    u.add_argument("--read-only", action="store_true", help="disable budget edits, approvals and task actions")
     u.add_argument("--port", type=int, default=8791)
     u.add_argument("--also", action="append", metavar="PROJECT_DIR", help="also show another project's store")
     return p

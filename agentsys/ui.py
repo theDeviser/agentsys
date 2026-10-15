@@ -1,8 +1,14 @@
-"""Read-only live dashboard over one or more agentsys stores (stdlib HTTP server, polling)."""
+"""Live dashboard over one or more agentsys stores (stdlib HTTP server, polling).
+
+Reads are open to the local page. Writes (budgets, approvals, requeue/unblock/cancel) need the per-session token
+embedded in the page, a matching Host and Origin, and JSON; they're recorded as the human running the server.
+"""
 from __future__ import annotations
 
+import hmac
 import json
 import re
+import secrets
 import sqlite3
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -11,7 +17,7 @@ from urllib.parse import parse_qs, urlparse
 
 from . import budget
 from .adapters import ADAPTERS
-from .store import Store
+from .store import Store, TransitionError
 
 HERE = Path(__file__).parent
 PAGE = HERE / "ui.html"
@@ -157,6 +163,59 @@ def task_detail(st: Store, tid: str) -> dict:
             "approvals": [a for a in st.approvals() if a.get("task_id") == tid]}
 
 
+NAME = re.compile(r"[A-Za-z0-9._@+-]{1,64}")
+TASK_ID = re.compile(r"t-[0-9a-f]{8}")
+
+
+class BadRequest(Exception):
+    pass
+
+
+def _int(v, lo, hi, field, optional=True):
+    if v in (None, ""):
+        if optional:
+            return None
+        raise BadRequest(f"{field} is required")
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or v != int(v) or not lo <= v <= hi:
+        raise BadRequest(f"{field} must be a whole number from {lo:,} to {hi:,}")
+    return int(v)
+
+
+def apply_action(st: Store, actor: str, body: dict) -> str:
+    """Perform one human action from the dashboard. Returns a sentence describing what happened."""
+    kind = body.get("action")
+    if kind == "budget.set":
+        provider, account = str(body.get("provider", "")), str(body.get("account", ""))
+        if not (NAME.fullmatch(provider) and NAME.fullmatch(account)):
+            raise BadRequest("provider and account may use letters, digits and . _ @ + - (max 64)")
+        limit = _int(body.get("limit"), 0, 10**12, "Total cap") or 0
+        per_run = _int(body.get("per_run"), 1, 10**12, "Per-run cap")
+        reserve = _int(body.get("reserve_pct", 20), 0, 90, "Review reserve", optional=False)
+        wh = body.get("window_hours")
+        if wh in ("", None, 0):
+            wh = None
+        elif isinstance(wh, bool) or not isinstance(wh, (int, float)) or not 0 < wh <= 24 * 90:
+            raise BadRequest("Window must be between 0 and 2,160 hours (blank = all time)")
+        note = str(body.get("note") or "")[:300] or None
+        st.set_budget(provider, account, limit, actor, reserve_pct=float(reserve), source="dashboard", note=note,
+                      per_run_limit=per_run, window_hours=float(wh) if wh else None)
+        return f"Saved limits for {provider}/{account}"
+    if kind in ("approval.grant", "approval.deny"):
+        aid = _int(body.get("id"), 1, 10**9, "approval id", optional=False)
+        st.decide_approval(aid, actor, kind == "approval.grant")
+        return f"Approval #{aid} {'granted' if kind == 'approval.grant' else 'denied'}"
+    if kind in ("task.requeue", "task.unblock", "task.cancel"):
+        tid = str(body.get("id", ""))
+        if not TASK_ID.fullmatch(tid):
+            raise BadRequest("bad task id")
+        if kind == "task.cancel":
+            st.cancel(tid, actor, str(body.get("reason") or "cancelled from the dashboard")[:300])
+            return f"{tid} cancelled"
+        st.transition(tid, kind.split(".")[1], actor, owner=None, lease_expires=None)
+        return f"{tid} is back in the queue"
+    raise BadRequest(f"unknown action {kind!r}")
+
+
 def icon_bundle() -> str:
     out = {}
     if ICONS.is_dir():
@@ -168,13 +227,17 @@ def icon_bundle() -> str:
     return json.dumps(out)
 
 
-def serve(db_paths, host="127.0.0.1", port=8791):
+def serve(db_paths, host="127.0.0.1", port=8791, actor="human:local", writable=True):
     db_paths = [Path(p) for p in (db_paths if isinstance(db_paths, (list, tuple)) else [db_paths])]
     projects = [{"id": i, "name": p.parent.parent.name, "root": str(p.parent.parent)} for i, p in enumerate(db_paths)]
     allowed_hosts = {f"127.0.0.1:{port}", f"localhost:{port}"}
+    allowed_origins = {f"http://{h}" for h in allowed_hosts}
     harnesses = [{k: d[k] for k in ("adapter", "provider", "available")} for d in (a.detect() for a in ADAPTERS.values())]
     icons = icon_bundle()
-    page = lambda: PAGE.read_text(encoding="utf-8").replace("/*__ICONS__*/{}", icons)
+    token = secrets.token_urlsafe(32)
+    config = json.dumps({"writable": writable, "actor": actor, "token": token if writable else None})
+    page = lambda: (PAGE.read_text(encoding="utf-8").replace("/*__ICONS__*/{}", icons)
+                    .replace("/*__CONFIG__*/{}", config))
 
     class H(BaseHTTPRequestHandler):
         def log_message(self, *a):
@@ -222,9 +285,44 @@ def serve(db_paths, host="127.0.0.1", port=8791):
             except (KeyError, ValueError, sqlite3.Error) as e:
                 return self._send(404, json.dumps({"error": str(e)}), "application/json")
 
+        def do_POST(self):
+            err = lambda code, msg: self._send(code, json.dumps({"error": msg}), "application/json")
+            if self.headers.get("Host") not in allowed_hosts:
+                return err(403, "forbidden host")
+            if self.headers.get("Origin") not in allowed_origins:
+                return err(403, "forbidden origin")
+            if not writable:
+                return err(403, "this dashboard was started with --read-only")
+            if not hmac.compare_digest(self.headers.get("X-Agentsys-Token", ""), token):
+                return err(403, "missing or stale session token; reload the page")
+            if not (self.headers.get("Content-Type") or "").startswith("application/json"):
+                return err(415, "expected application/json")
+            url = urlparse(self.path)
+            if url.path != "/api/action":
+                return err(404, "not found")
+            n = int(self.headers.get("Content-Length") or 0)
+            if not 0 < n <= 16384:
+                return err(413, "request too large")
+            try:
+                body = json.loads(self.rfile.read(n))
+                idx = int(body.get("p", 0))
+                if not 0 <= idx < len(db_paths):
+                    raise BadRequest("unknown project")
+                st = Store(db_paths[idx])
+                try:
+                    msg = apply_action(st, actor, body)
+                finally:
+                    st.close()
+                return self._send(200, json.dumps({"ok": True, "message": msg}), "application/json")
+            except (BadRequest, TransitionError, KeyError, ValueError, json.JSONDecodeError) as e:
+                return err(400, str(e).strip("'\""))
+            except sqlite3.Error as e:
+                return err(500, f"store error: {e}")
+
     srv = ThreadingHTTPServer((host, port), H)
     names = ", ".join(p["name"] for p in projects)
-    print(f"agentsys dashboard: http://{host}:{port}  ({names}; read-only; Ctrl-C to stop)")
+    mode = f"actions recorded as {actor}" if writable else "read-only"
+    print(f"agentsys dashboard: http://{host}:{port}  ({names}; {mode}; Ctrl-C to stop)")
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

@@ -150,6 +150,61 @@ class TestBudget(GitRepo):
             budget.check_dispatch(st, claude, "acct", est=90_000)  # eats into the 20% reserve
         budget.check_dispatch(st, claude, "acct", role="review", est=90_000)  # reviews may use it
 
+    def test_dashboard_actions_validate_and_record_the_human(self):
+        from agentsys.ui import BadRequest, apply_action
+        st = self.store()
+        msg = apply_action(st, "human:v", {"action": "budget.set", "provider": "openai", "account": "me",
+                                           "limit": 0, "per_run": 200000, "window_hours": 5, "reserve_pct": 20})
+        self.assertIn("openai/me", msg)
+        b = st.budget("openai", "me")
+        self.assertEqual((b["limit_tokens"], b["per_run_limit"], b["window_hours"], b["source"]), (0, 200000, 5.0, "dashboard"))
+        self.assertTrue(any(e["kind"] == "budget.set" and e["actor"] == "human:v" for e in st.events()))
+        for bad in ({"action": "budget.set", "provider": "x y", "account": "me", "limit": 1},
+                    {"action": "budget.set", "provider": "openai", "account": "me", "limit": -5},
+                    {"action": "budget.set", "provider": "openai", "account": "me", "limit": 1, "window_hours": 9999},
+                    {"action": "task.cancel", "id": "../etc"}, {"action": "rm -rf"}):
+            with self.assertRaises(BadRequest):
+                apply_action(st, "human:v", bad)
+        t = st.add_task("human:v", "x", kind="research")
+        apply_action(st, "human:v", {"action": "task.cancel", "id": t["id"]})
+        self.assertEqual(st.get(t["id"])["state"], "cancelled")
+
+    def test_dashboard_rejects_writes_without_token_or_origin(self):
+        import socket
+        import urllib.error
+        import urllib.request
+        with socket.socket() as s:
+            s.bind(("127.0.0.1", 0))
+            port = s.getsockname()[1]
+        self.cli("init")
+        proc = subprocess.Popen(CLI + ["ui", "--port", str(port)], cwd=str(self.root), env=self.env,
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            base = f"http://127.0.0.1:{port}"
+            for _ in range(50):
+                try:
+                    page = urllib.request.urlopen(base + "/").read().decode()
+                    break
+                except OSError:
+                    time.sleep(0.1)
+            token = json.loads(page.split("const CONFIG = ", 1)[1].split(";\n", 1)[0])["token"]
+            body = json.dumps({"action": "budget.set", "provider": "openai", "account": "me", "limit": 1}).encode()
+
+            def post(headers):
+                req = urllib.request.Request(base + "/api/action", data=body, method="POST",
+                                             headers={"Content-Type": "application/json", **headers})
+                try:
+                    return urllib.request.urlopen(req).status
+                except urllib.error.HTTPError as e:
+                    return e.code
+            self.assertEqual(post({"Origin": base}), 403)                                  # no token
+            self.assertEqual(post({"Origin": "http://evil.example", "X-Agentsys-Token": token}), 403)
+            self.assertEqual(post({"Origin": base, "X-Agentsys-Token": "wrong"}), 403)
+            self.assertEqual(post({"Origin": base, "X-Agentsys-Token": token}), 200)
+        finally:
+            proc.terminate()
+            proc.wait(5)
+
     def test_budget_is_shared_across_projects(self):
         a = self.store()
         b = Store(self.tmp / "other" / ".agent-system" / "state.db")
