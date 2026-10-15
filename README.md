@@ -70,7 +70,7 @@ reported afterwards rather than prevented.
 ### Dashboard
 
 ```sh
-agentsys ui --also ~/other-project      # http://127.0.0.1:8791, read-only, follows Cursor's design tokens
+agentsys ui --also ~/other-project      # http://127.0.0.1:8791 (add --read-only to disable edits)
 ```
 
 It shows what each agent is doing now, how every task moved between agents, a run timeline with tokens, spend

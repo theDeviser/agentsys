@@ -348,6 +348,36 @@ button.sb:hover { background: var(--hover); color: var(--text-1); }
   transition: opacity .15s, transform .15s; pointer-events: none; }
 .toast.show { opacity: 1; transform: none; }
 
+.toast.bad { border-color: color-mix(in srgb, var(--red) 50%, transparent); }
+.attn-acts, .next-acts { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.next-acts { margin-left: auto; }
+h2 .btn.more { margin-left: auto; }
+dialog { width: min(520px, calc(100vw - 24px)); padding: 0; border: 1px solid var(--stroke-2); border-radius: var(--r-xl);
+  background: var(--bg-elevated); color: var(--text-1); box-shadow: var(--shadow); }
+dialog::backdrop { background: color-mix(in srgb, #000 35%, transparent); }
+.dlg-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px 4px; }
+.dlg-head h3 { margin: 0; font-size: var(--fs-lg); font-weight: 600; }
+.dlg-body { padding: 8px 16px 4px; display: grid; gap: 14px; }
+.dlg-body p { margin: 0; color: var(--text-2); }
+.field { display: grid; gap: 4px; }
+.field label { font-size: var(--fs-sm); font-weight: 500; color: var(--text-1); }
+.field .help { font-size: var(--fs-sm); color: var(--text-3); }
+.field .err { font-size: var(--fs-sm); color: color-mix(in srgb, var(--red) 70%, var(--base)); }
+.field .input, .field select { width: 100%; min-width: 0; height: 28px; }
+.field select { padding: 0 6px; border-radius: var(--r); border: 1px solid var(--stroke-2); background: var(--fill-3); color: var(--text-1); }
+.field .input[aria-invalid="true"] { border-color: color-mix(in srgb, var(--red) 70%, transparent); }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.presets { display: flex; gap: 4px; flex-wrap: wrap; }
+.presets button { height: 20px; padding: 0 7px; border-radius: 10px; font-size: var(--fs-xs); color: var(--text-2); background: var(--fill-2); }
+.presets button:hover { background: var(--fill-1); color: var(--text-1); }
+.preview { padding: 10px 12px; border-radius: var(--r-lg); font-size: var(--fs-sm); line-height: 18px; }
+.preview.ok { background: color-mix(in srgb, var(--green) 10%, transparent); }
+.preview.no { background: color-mix(in srgb, var(--red) 10%, transparent); }
+.preview.info { background: var(--fill-2); color: var(--text-2); }
+.dlg-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 16px; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn.danger { background: color-mix(in srgb, var(--red) 80%, var(--bg-editor)); color: #fff; border-color: transparent; }
+@media (max-width: 520px) { .row2 { grid-template-columns: 1fr; } }
 .pulse { animation: pulse 1.6s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: .45; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
@@ -387,9 +417,11 @@ button.sb:hover { background: var(--hover); color: var(--text-1); }
   <div class="pal-list" id="pal-list" role="listbox"></div>
 </div></div>
 <div class="toast" id="toast" role="status"></div>
+<dialog id="dlg" aria-labelledby="dlg-title"></dialog>
 <script>
 "use strict";
 const ICONS = /*__ICONS__*/{};
+const CONFIG = /*__CONFIG__*/{};
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const qs = new URLSearchParams(location.search);
@@ -527,6 +559,15 @@ async function poll(force) {
     if (changed || force) render(); else renderStatus();
   } catch (e) { S.error = e.message || String(e); renderStatus(); }
 }
+async function act(payload, okMsg) {
+  if (!CONFIG.writable) { toast("This dashboard is read-only. Restart it without --read-only to make changes."); return false; }
+  try {
+    const r = await fetch("/api/action", { method: "POST", headers: { "Content-Type": "application/json", "X-Agentsys-Token": CONFIG.token }, body: JSON.stringify({ p: S.proj, ...payload }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { toast(j.error || `Failed (HTTP ${r.status})`, true); return false; }
+    toast(okMsg || j.message || "Done"); S.sig = ""; await poll(true); return true;
+  } catch (e) { toast(`Couldn’t reach the server: ${e.message}`, true); return false; }
+}
 async function loadDetail(id) { try { S.detail[id] = await getJSON("/api/task?id=" + encodeURIComponent(id)); } catch (e) { S.detail[id] = { error: e.message }; } }
 let timer = null;
 function schedule() { clearInterval(timer); if (S.live) timer = setInterval(() => poll(), 2000); }
@@ -544,22 +585,26 @@ function closeTab(id) {
   if (S.active === id) S.active = S.tabs[i] || S.tabs[i - 1] || null;
   persist(); render();
 }
-function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 1800); }
+function toast(msg, bad) { const t = $("#toast"); t.textContent = msg; t.classList.toggle("bad", !!bad); t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), bad ? 5000 : 2200); }
 async function copy(text) { try { await navigator.clipboard.writeText(text); toast("Copied to clipboard"); } catch { toast("Couldn’t copy. Select the text instead."); } }
 
 /* ---------- derived ---------- */
 function attention(d) {
   const out = [];
   for (const a of d.approvals.filter((a) => a.status === "pending"))
-    out.push({ tone: "warn", title: `Approve ${a.action} for ${a.task_id}`, body: `${who(a.requested_by).label} asked: ${a.reason || "no reason given"}`, cmd: `agentsys approve ${a.id}`, task: a.task_id });
+    out.push({ tone: "warn", title: `Approve ${a.action} for ${a.task_id}`, body: `${who(a.requested_by).label} asked: ${a.reason || "no reason given"}`, cmd: `agentsys --as human:<name> approve ${a.id}`, task: a.task_id,
+      acts: [{ label: "Approve", primary: true, payload: { action: "approval.grant", id: a.id } }, { label: "Deny", payload: { action: "approval.deny", id: a.id }, confirm: `Deny the ${a.action} request for ${a.task_id}?` }] });
   for (const t of d.tasks.filter((t) => t.state === "escalated"))
-    out.push({ tone: "bad", title: `“${short(t.title, 70)}” ran out of attempts`, body: `It failed ${t.attempts} of ${t.max_attempts} attempts. Read its blockers. Then requeue it to try again, or cancel it if the goal no longer applies.`, cmd: `agentsys show ${t.id}`, task: t.id });
+    out.push({ tone: "bad", title: `“${short(t.title, 70)}” ran out of attempts`, body: `It failed ${t.attempts} of ${t.max_attempts} attempts. Read its blockers. Then requeue it to try again, or cancel it if the goal no longer applies.`, cmd: `agentsys show ${t.id}`, task: t.id,
+      acts: [{ label: "Requeue", payload: { action: "task.requeue", id: t.id } }, { label: "Cancel task", payload: { action: "task.cancel", id: t.id }, confirm: `Cancel “${short(t.title, 60)}”? It can’t be reopened.` }] });
   for (const t of d.tasks.filter((t) => t.state === "blocked"))
-    out.push({ tone: "bad", title: `“${short(t.title, 70)}” is blocked`, body: `Read the latest blocker note and fix the cause, then run agentsys unblock ${t.id} to put it back in the queue.`, cmd: `agentsys show ${t.id}`, task: t.id });
+    out.push({ tone: "bad", title: `“${short(t.title, 70)}” is blocked`, body: `Read the latest blocker note and fix the cause, then unblock it to put it back in the queue.`, cmd: `agentsys show ${t.id}`, task: t.id,
+      acts: [{ label: "Unblock", payload: { action: "task.unblock", id: t.id } }] });
   for (const t of d.tasks.filter((t) => t.state === "accepted" && t.kind === "implement"))
     out.push({ tone: "info", title: `“${short(t.title, 70)}” is ready to merge`, body: `Reviewed and accepted on branch ${t.branch || "agent/" + t.id}. This command checks for conflicts, then asks for your approval before merging.`, cmd: `agentsys merge-check ${t.id} && agentsys merge ${t.id}`, task: t.id });
   for (const b of d.budgets.filter((b) => b.dispatch === "refused"))
-    out.push({ tone: "warn", title: `${HARNESS[b.adapter]?.name || b.provider} can’t be dispatched on ${b.account}`, body: budgetWhy(b) + " The cap is your decision. If you want to allow it, this raises it to fit the next run:", budget: true, cmd: budgetFix(b) });
+    out.push({ tone: "warn", title: `${HARNESS[b.adapter]?.name || b.provider} can’t be dispatched on ${b.account}`, body: budgetWhy(b) + " The cap is your decision. Edit the limits here, or run:", budget: true, cmd: budgetFix(b),
+      acts: [{ label: "Edit limits", primary: true, edit: `${b.provider}|${b.account}` }] });
   return out;
 }
 const roundUp = (n, step) => Math.ceil(n / step) * step;
@@ -576,6 +621,14 @@ function budgetWhy(b) {
   if (b.limit && b.pct >= 100) return `It has used ${full(b.used)} of its ${full(b.limit)}-token cap (${b.pct}%).`;
   if (b.limit) return `The next run (about ${full(b.next_estimate)} tokens) would dip into the ${b.reserve_pct}% kept back for reviews.`;
   return b.refusal || "Dispatch is refused.";
+}
+function taskActs(t) {
+  const acts = [];
+  if (t.state === "escalated") acts.push({ label: "Requeue", primary: true, payload: { action: "task.requeue", id: t.id } });
+  if (t.state === "blocked") acts.push({ label: "Unblock", primary: true, payload: { action: "task.unblock", id: t.id } });
+  if (!["merged", "cancelled", "accepted"].includes(t.state))
+    acts.push({ label: "Cancel task", payload: { action: "task.cancel", id: t.id }, confirm: `Cancel “${short(t.title, 60)}”?${t.state === "in_progress" ? " An agent is working on it right now." : ""} It can’t be reopened.` });
+  return acts;
 }
 function nextStep(t) {
   const i = t.id;
@@ -670,6 +723,7 @@ function renderStatus() {
       const warn = b.dispatch === "refused";
       h += `<button class="sb" data-view="budget" title="${esc(`${p.name || b.provider} · ${b.account}: ${full(b.used)} tokens${b.limit ? ` of ${full(b.limit)}` : b.window_hours ? ` in the last ${b.window_hours}h, no cap` : ""}${warn ? ". Dispatch refused: " + budgetWhy(b) : ""}`)}" ${warn ? 'style="color:var(--warn-text)"' : ""}>${p.icon && ICONS[p.icon] ? brand(p.icon) : ""}${txt}</button>`;
     }
+    h += `<span class="sb hide-sm" title="${CONFIG.writable ? "Approvals, limit changes and task actions you make here are recorded under this identity" : "Started with --read-only"}">${g("person")}${CONFIG.writable ? esc(CONFIG.actor) : "Read-only"}</span>`;
     h += `<span class="sb hide-sm" title="Last update ${S.fetchedAt ? new Date(S.fetchedAt).toLocaleTimeString() : ""}">${g("clock")}${S.fetchedAt ? Math.round((Date.now() - S.fetchedAt) / 1000) + "s" : ""}</span>`;
   }
   $("#status").innerHTML = h;
@@ -700,7 +754,13 @@ function attnRow(a) {
   const color = a.tone === "bad" ? "var(--red)" : a.tone === "warn" ? "var(--yellow)" : "var(--accent)";
   return `<div class="attn"><span class="ico-wrap" style="color:${color}">${g(a.tone === "info" ? "merge" : "warn")}</span><div class="what"><b>${esc(a.title)}</b><p>${esc(a.body)}</p>
     <div class="cmd"><span>${esc(a.cmd)}</span><button data-copy="${esc(a.cmd)}" aria-label="Copy command">Copy</button></div></div>
-    ${a.task ? `<button class="btn ghost" data-task="${a.task}">Open</button>` : `<button class="btn ghost" data-view="budget">Budget</button>`}</div>`;
+    <div class="attn-acts">${actButtons(a.acts)}${a.task ? `<button class="btn ghost" data-task="${a.task}">Open</button>` : ""}</div></div>`;
+}
+function actButtons(acts) {
+  if (!CONFIG.writable || !acts) return "";
+  return acts.map((x) => x.edit
+    ? `<button class="btn${x.primary ? " primary" : ""}" data-edit="${esc(x.edit)}">${esc(x.label)}</button>`
+    : `<button class="btn${x.primary ? " primary" : ""}" data-act="${esc(JSON.stringify(x.payload))}"${x.confirm ? ` data-confirm="${esc(x.confirm)}"` : ""}>${esc(x.label)}</button>`).join("");
 }
 function agentCard(a) {
   const d = S.data, w = who(a.agent), live = d.live.find((l) => l.agent === a.agent);
@@ -789,14 +849,15 @@ function budgetCard(b) {
       <dt>Next run</dt><dd>about ${full(b.next_estimate)} tokens <span class="faint">(average of recent runs)</span></dd>
       <dt>All time</dt><dd>${full(b.used_all_time)} tokens over ${b.runs} run${b.runs === 1 ? "" : "s"}${b.projects > 1 ? ` in ${b.projects} projects` : ""}</dd>
       <dt>Spend</dt><dd>${b.spend_usd != null ? `${usd(b.spend_usd)} <span class="faint">reported by the provider</span>` : '<span class="faint">not reported by this CLI (subscription plan)</span>'}</dd>
-      ${b.source ? `<dt>Set by</dt><dd>${esc(b.source)}</dd>` : ""}</dl>${note}</div>`;
+      ${b.source ? `<dt>Set by</dt><dd>${esc(b.source)}${b.note ? ` <span class="faint" title="${esc(b.note)}">· ${esc(short(b.note, 48))}</span>` : ""}</dd>` : ""}</dl>${note}
+    ${CONFIG.writable ? `<div><button class="btn" data-edit="${esc(b.provider + "|" + b.account)}">Edit limits</button></div>` : ""}</div>`;
 }
 function viewBudget(d) {
   const ad = d.harnesses || [];
   const rows = ad.map((a) => { const h = HARNESS[a.adapter] || {}; return `<div class="calm">${av(a.adapter, "")}<div style="flex:1"><div style="color:var(--text-1)">${esc(h.name || a.adapter)}</div><div class="sub">${esc(h.vendor || "")} · adapter <code>${esc(a.adapter)}</code></div></div>${a.available ? '<span class="badge s-good">Installed</span>' : '<span class="badge s-idle">Not found</span>'}</div>`; }).join("");
   const later = NOT_YET.map((n) => `<div class="calm">${ICONS[n.icon] ? `<span class="av">${brand(n.icon)}</span>` : ""}<div style="flex:1"><div style="color:var(--text-1)">${esc(n.name)}</div><div class="sub">${esc(n.vendor)}</div></div><span class="badge s-idle">No adapter yet</span></div>`).join("");
   return `<div class="page"><h1>Budget & spend</h1><p class="lede">Each provider account has its own limit; nothing is pooled between accounts. An account’s usage is counted across every project on this machine (in <code>~/.agentsys/ledger.db</code>), so a cap holds whichever repo dispatches. Limits are checked before a run starts. A CLI can’t be stopped partway through a run, so one run can go over a cap. When that happens it’s flagged here and in the run’s output.</p>
-    <h2>Accounts</h2><div class="grid">${d.budgets.map(budgetCard).join("") || '<div class="card empty">No budgets set.</div>'}</div>
+    <h2>Accounts${CONFIG.writable ? `<button class="btn more" data-edit="new">Add account</button>` : `<span class="hint">read-only: start the dashboard without --read-only to edit</span>`}</h2><div class="grid">${d.budgets.map(budgetCard).join("") || '<div class="card empty">No budgets set.</div>'}</div>
     <h2>Harnesses <span class="hint">CLIs agentsys can dispatch to on this machine</span></h2><div class="list">${rows}</div>
     <h2>Not connected <span class="hint">shown for reference only; nothing is sent to these</span></h2><div class="list">${later}</div>
     <p class="sub" style="margin-top:24px">Provider logos from <a href="https://github.com/lobehub/lobe-icons" target="_blank" rel="noopener">LobeHub Icons</a> (MIT). They belong to their respective owners.</p></div>`;
@@ -860,7 +921,7 @@ function viewTask(id) {
   const [nextTxt, nextCmd] = nextStep(t);
   let h = `<div class="page"><div style="display:flex;align-items:center;gap:8px">${stateBadge(t.state)}<span class="chip">${esc(t.kind)}</span><span class="mono faint">${esc(t.id)}</span></div>
     <h1>${esc(t.title)}</h1><p class="lede" style="font-size:var(--fs);line-height:20px">${esc(say)}</p>
-    <div class="next"><b>Next</b><span>${esc(nextTxt)}</span>${nextCmd ? `<div class="cmd"><span>${esc(nextCmd)}</span><button data-copy="${esc(nextCmd)}" aria-label="Copy command">Copy</button></div>` : ""}</div>
+    <div class="next"><b>Next</b><span>${esc(nextTxt)}</span>${nextCmd ? `<div class="cmd"><span>${esc(nextCmd)}</span><button data-copy="${esc(nextCmd)}" aria-label="Copy command">Copy</button></div>` : ""}<span class="next-acts">${actButtons(taskActs(t))}</span></div>
     ${t.state !== "cancelled" ? stepper(t) : ""}`;
   if (chain.length) h += `<h2>Handoffs</h2><div class="list">${flowRow(t)}</div>`;
   h += `<div class="cols"><div>`;
@@ -928,14 +989,117 @@ $("#pal-in").addEventListener("keydown", (e) => {
 $("#scrim").addEventListener("mousedown", (e) => { if (e.target.id === "scrim") palClose(); });
 $("#pal-list").addEventListener("click", (e) => { const b = e.target.closest("[data-pal]"); if (b) { const it = palItems[+b.dataset.pal]; palClose(); it.run(); } });
 
+/* ---------- dialogs ---------- */
+const DEFAULT_EST = { anthropic: 80000, openai: 60000, cursor: 120000, xai: 60000, google: 60000 };
+function parseTok(s) {
+  s = String(s ?? "").trim().toLowerCase().replace(/[,_\s]/g, "");
+  if (!s) return null;
+  const m = s.match(/^(\d+(?:\.\d+)?)([km]?)$/);
+  if (!m) return NaN;
+  return Math.round(parseFloat(m[1]) * (m[2] === "k" ? 1e3 : m[2] === "m" ? 1e6 : 1));
+}
+function confirmDialog(msg, okLabel = "Confirm") {
+  const d = $("#dlg");
+  d.innerHTML = `<div class="dlg-head"><h3 id="dlg-title">Are you sure?</h3></div><div class="dlg-body"><p>${esc(msg)}</p></div>
+    <div class="dlg-foot"><button class="btn ghost" value="no" data-dlg="no">Keep it</button><button class="btn danger" data-dlg="yes">${esc(okLabel)}</button></div>`;
+  d.showModal(); d.querySelector("[data-dlg=no]").focus();
+  return new Promise((res) => {
+    d.onclick = (e) => { const b = e.target.closest("[data-dlg]"); if (b) { d.close(); res(b.dataset.dlg === "yes"); } else if (e.target === d) { d.close(); res(false); } };
+    d.oncancel = () => res(false);
+  });
+}
+function openBudgetEditor(key) {
+  const isNew = key === "new";
+  const [provider, account] = isNew ? ["openai", ""] : key.split("|");
+  const b = (S.data.budgets || []).find((x) => x.provider === provider && x.account === account) || {};
+  const p = PROVIDER[provider] || { name: provider };
+  const val = (v) => v == null || v === 0 ? "" : full(v);
+  const d = $("#dlg");
+  d.innerHTML = `<form id="bud-form" novalidate>
+    <div class="dlg-head">${!isNew && p.icon && ICONS[p.icon] ? `<span class="av lg">${brand(p.icon)}</span>` : ""}<div><h3 id="dlg-title">${isNew ? "Add a provider account" : `Limits for ${esc(p.name)} · ${esc(account)}`}</h3>
+      <div class="sub">${isNew ? "Set limits before agentsys will dispatch runs on it." : `Used ${full(b.used)} tokens${b.window_hours ? ` in the last ${b.window_hours}h` : " so far"}. Applies in every project.`}</div></div></div>
+    <div class="dlg-body">
+      ${isNew ? `<div class="row2"><div class="field"><label for="f-prov">Provider</label><select id="f-prov">${Object.entries(PROVIDER).map(([k, v]) => `<option value="${k}">${esc(v.name)} (${esc(v.product)})</option>`).join("")}</select></div>
+        <div class="field"><label for="f-acct">Account name</label><input class="input" id="f-acct" placeholder="e.g. alice-work" autocomplete="off"><span class="err" id="e-acct"></span></div></div>` : ""}
+      <div class="field"><label for="f-limit">Total cap</label><input class="input" id="f-limit" inputmode="numeric" value="${val(b.limit)}" placeholder="No cap" autocomplete="off">
+        <div class="presets" data-for="f-limit"><button type="button" data-v="">No cap</button><button type="button" data-v="500k">500k</button><button type="button" data-v="1M">1M</button><button type="button" data-v="5M">5M</button></div>
+        <span class="help">Tokens, including cache reads. Leave blank to only track usage. You can type 500k or 1.5M.</span><span class="err" id="e-limit"></span></div>
+      <div class="row2">
+        <div class="field"><label for="f-perrun">Per-run cap</label><input class="input" id="f-perrun" inputmode="numeric" value="${val(b.per_run_limit)}" placeholder="None" autocomplete="off">
+          <div class="presets" data-for="f-perrun"><button type="button" data-v="">None</button><button type="button" data-v="200k">200k</button><button type="button" data-v="500k">500k</button></div><span class="err" id="e-perrun"></span></div>
+        <div class="field"><label for="f-window">Count usage over</label><select id="f-window">${[["", "All time"], ["5", "Last 5 hours"], ["24", "Last 24 hours"], ["168", "Last 7 days"], ["720", "Last 30 days"]].map(([v, l]) => `<option value="${v}" ${String(b.window_hours || "") === v || (v === "5" && b.window_hours === 5) ? "selected" : ""}>${l}</option>`).join("")}</select>
+          <span class="help">Pick the window your plan resets on.</span></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label for="f-reserve">Kept for reviews</label><input class="input" id="f-reserve" inputmode="numeric" value="${b.reserve_pct ?? 20}"><span class="help">% of the total cap only review runs may use.</span><span class="err" id="e-reserve"></span></div>
+        <div class="field"><label for="f-note">Reason</label><input class="input" id="f-note" value="${esc(b.note || "")}" placeholder="Shown in the audit trail" maxlength="300"></div>
+      </div>
+      <div class="preview info" id="bud-preview" aria-live="polite"></div>
+    </div>
+    <div class="dlg-foot"><button type="button" class="btn ghost" id="bud-cancel">Cancel</button><button type="submit" class="btn primary" id="bud-save">Save limits</button></div></form>`;
+  d.showModal();
+  const f = (id) => d.querySelector("#" + id);
+  (isNew ? f("f-acct") : f("f-limit")).focus();
+  const read = () => ({
+    provider: isNew ? f("f-prov").value : provider, account: isNew ? f("f-acct").value.trim() : account,
+    limit: parseTok(f("f-limit").value), per_run: parseTok(f("f-perrun").value),
+    window_hours: f("f-window").value ? +f("f-window").value : null, reserve_pct: f("f-reserve").value.trim() === "" ? 20 : +f("f-reserve").value,
+    note: f("f-note").value.trim(),
+  });
+  const update = () => {
+    const v = read(); let ok = true;
+    const setErr = (id, msg) => { const e = f("e-" + id); if (e) e.textContent = msg || ""; const inp = f("f-" + id); if (inp) inp.setAttribute("aria-invalid", msg ? "true" : "false"); if (msg) ok = false; };
+    if (isNew) setErr("acct", !v.account ? "Required" : !/^[A-Za-z0-9._@+-]{1,64}$/.test(v.account) ? "Letters, digits and . _ @ + - only" : (S.data.budgets || []).some((x) => x.provider === v.provider && x.account === v.account) ? "This account already has limits; edit it instead" : "");
+    setErr("limit", Number.isNaN(v.limit) ? "Enter a number like 1000000, 500k or 1.5M" : "");
+    setErr("perrun", Number.isNaN(v.per_run) ? "Enter a number like 200k" : v.per_run === 0 ? "Use blank for no per-run cap" : v.per_run && v.limit && v.per_run > v.limit ? "Can’t be larger than the total cap" : "");
+    setErr("reserve", !(v.reserve_pct >= 0 && v.reserve_pct <= 90 && Number.isInteger(v.reserve_pct)) ? "A whole number from 0 to 90" : "");
+    f("bud-save").disabled = !ok;
+    const pv = f("bud-preview");
+    if (!ok) { pv.className = "preview info"; pv.textContent = "Fix the highlighted fields to see what these limits would allow."; return; }
+    const est = b.next_estimate || DEFAULT_EST[v.provider] || 60000;
+    const sameWindow = (b.window_hours || null) === v.window_hours;
+    const used = isNew ? 0 : sameWindow ? b.used : null;
+    let cls = "ok", msg;
+    if (v.per_run && est > v.per_run) { cls = "no"; msg = `The next run is estimated at ${full(est)} tokens, over the ${full(v.per_run)} per-run cap. Every dispatch would be refused.`; }
+    else if (v.limit && used != null && used + est > v.limit * (1 - v.reserve_pct / 100)) {
+      cls = "no"; msg = used + est <= v.limit ? `Work runs would be refused: ${full(used)} used + ${full(est)} for the next run goes into the ${v.reserve_pct}% kept for reviews. Review runs are still allowed.` : `Every run would be refused: ${full(used)} used + ${full(est)} for the next run is over the ${full(v.limit)} cap.`;
+    } else msg = `The next run (about ${full(est)} tokens) would be allowed.${v.limit && used != null ? ` About ${full(Math.max(0, Math.floor(v.limit * (1 - v.reserve_pct / 100)) - used))} tokens left for work runs.` : v.limit ? "" : " Usage is tracked with no total cap; the provider still enforces its own plan limits."}`;
+    if (used == null) msg += " Usage will be recounted for the new window when you save.";
+    pv.className = "preview " + cls; pv.textContent = msg;
+  };
+  d.oninput = update; d.onchange = update;
+  d.onclick = (e) => {
+    const pr = e.target.closest(".presets button");
+    if (pr) { f(pr.parentElement.dataset.for).value = pr.dataset.v; update(); return; }
+    if (e.target.id === "bud-cancel" || e.target === d) d.close();
+  };
+  d.oncancel = null;
+  f("bud-form").onsubmit = async (e) => {
+    e.preventDefault(); const v = read();
+    f("bud-save").disabled = true; f("bud-save").textContent = "Saving…";
+    const ok = await act({ action: "budget.set", provider: v.provider, account: v.account, limit: v.limit || 0, per_run: v.per_run || null, window_hours: v.window_hours, reserve_pct: v.reserve_pct, note: v.note }, `Saved limits for ${PROVIDER[v.provider]?.name || v.provider} · ${v.account}`);
+    if (ok) d.close(); else { f("bud-save").disabled = false; f("bud-save").textContent = "Save limits"; }
+  };
+  update();
+}
+
 /* ---------- actions ---------- */
 function toggleTheme() { const t = document.documentElement.dataset.theme === "dark" ? "light" : "dark"; document.documentElement.dataset.theme = t; localStorage.setItem("agentsys.theme", t); }
 function toggleLive() { S.live = !S.live; schedule(); if (S.live) poll(true); renderStatus(); toast(S.live ? "Live updates on" : "Live updates paused"); }
 function switchProj(id) { S.proj = id; S.tabs = []; S.active = null; S.detail = {}; S.sig = ""; persist(); poll(true); }
 function toggleSide() { const a = $("#app"); a.classList.toggle("side-hidden"); $("#btn-side").setAttribute("aria-pressed", !a.classList.contains("side-hidden")); }
 document.addEventListener("click", (e) => {
-  const el = e.target.closest("[data-close],[data-copy],[data-expand],[data-task],[data-view],[data-sec],[data-proj],[data-agent],[data-action]");
+  if (e.target.closest("dialog")) return;
+  const el = e.target.closest("[data-close],[data-copy],[data-expand],[data-edit],[data-act],[data-task],[data-view],[data-sec],[data-proj],[data-agent],[data-action]");
   if (!el) return;
+  if (el.dataset.edit) return openBudgetEditor(el.dataset.edit);
+  if (el.dataset.act) {
+    (async () => {
+      if (el.dataset.confirm && !(await confirmDialog(el.dataset.confirm, el.textContent))) return;
+      el.disabled = true; await act(JSON.parse(el.dataset.act)); el.disabled = false;
+    })();
+    return;
+  }
   if (el.tagName === "A") e.preventDefault();
   const ds = el.dataset;
   if (ds.close) { e.stopPropagation(); return closeTab(ds.close); }
@@ -955,7 +1119,7 @@ document.addEventListener("keydown", (e) => {
   if (mod && e.key.toLowerCase() === "k") { e.preventDefault(); $("#scrim").classList.contains("open") ? palClose() : palOpen(); }
   else if (mod && e.key.toLowerCase() === "b") { e.preventDefault(); toggleSide(); }
   else if (e.key === "Enter" && e.target.classList?.contains("tab")) e.target.click();
-  else if (!mod && !e.altKey && /^[1-5]$/.test(e.key) && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) openView(VIEWS[+e.key - 1][0]);
+  else if (!mod && !e.altKey && /^[1-5]$/.test(e.key) && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) && !$("#dlg").open) openView(VIEWS[+e.key - 1][0]);
 });
 $("#cc").addEventListener("click", palOpen);
 $("#btn-theme").addEventListener("click", toggleTheme);
