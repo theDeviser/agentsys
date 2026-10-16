@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Changelog — agentsys</title>
+<link rel="stylesheet" href="/agentsys/css/tokens.css">
+<link rel="stylesheet" href="/agentsys/css/site.css">
+</head>
+<body class="page">
+<header class="top">
+  <a class="brand" href="/agentsys/">agentsys</a>
+  <nav><a href="/agentsys/">Home</a> · <a href="/agentsys/changelog.html">Changelog</a></nav>
+</header>
+<main class="prose">
+<h1>Changelog</h1>
+
+<p>All notable changes to this project will be documented in this file.</p>
+
+<p>The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),</p>
+<p>and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).</p>
+
+<h2 id="unreleased">[Unreleased]</h2>
+
+<h3>Added</h3>
+
+<ul>
+<li>Activity dashboard filter keeps focus while the list updates (<code>#activity-list</code> split from toolbar).</li>
+<li><code>CHANGELOG.md</code>, <code>site/changelog.html</code> (generated), and <code>scripts/build_changelog_site.py</code>.</li>
+<li>Scripted <code>agentsys demo</code> story in a temp repo (<code>AGENTSYS_DEMO=1</code> or <code>--force</code>).</li>
+<li>GitHub open-source launch assets: docs set, <code>site/</code> landing, CI workflows, maintainer scripts.</li>
+</ul>
+
+<h3>Fixed</h3>
+
+<ul>
+<li>Sidebar agent drill-down no longer overwrites the free-text Activity filter with a harness label.</li>
+</ul>
+
+<h2 id="010-2026-10-16">[0.1.0] - 2026-10-16</h2>
+
+<p>First public hardening release (coordination CLI, dashboard, trust model).</p>
+
+<h3>Added</h3>
+
+<ul>
+<li>Durable SQLite task store with leases, worktrees, and scoped implement tasks.</li>
+<li>Hash-chained audit log (<code>verify-log</code>), human-action provenance, optional approver signatures.</li>
+<li>Git hooks (<code>hooks install</code>), <code>check-branch</code>, and stdio MCP worker (<code>agentsys mcp</code>).</li>
+<li>Repo verification profiles, git-derived <code>resume</code> / <code>handoff</code>, per-account budgets and usage import.</li>
+<li><code>agentsys doctor</code>, <code>agentsys metrics</code>, adversarial and e2e tests (51+ unit tests).</li>
+<li>Live dashboard (<code>agentsys ui</code>) with flow, runs, budget, and activity views.</li>
+</ul>
+
+<p>[Unreleased]: https://github.com/theDeviser/agentsys/compare/v0.1.0...HEAD</p>
+<p>[0.1.0]: https://github.com/theDeviser/agentsys/releases/tag/v0.1.0</p>
+</main>
+<footer class="foot"><a href="https://github.com/theDeviser/agentsys">GitHub</a></footer>
+</body>
+</html>

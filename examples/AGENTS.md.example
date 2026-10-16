@@ -1,0 +1,16 @@
+# AGENTS.md (example)
+
+Copy into your repo and adapt for your team.
+
+```sh
+export PATH="$HOME/agentsys/bin:$PATH"
+export AGENTSYS_ACTOR="cursor:yourname:work"
+agentsys status
+agentsys resume <task>
+```
+
+Rules:
+
+- Use `agent:<harness>:<role>` for automated work; use `human:<name>` only from an interactive shell.
+- Do not merge or approve without `human:` identity.
+- Run `agentsys verify-log` before trusting a shared store.

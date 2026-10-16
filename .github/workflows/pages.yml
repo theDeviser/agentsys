@@ -1,0 +1,23 @@
+name: pages
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1635ceea73d27597364c9af683
+      - name: Build changelog HTML
+        run: python3 scripts/build_changelog_site.py
+      - uses: actions/upload-pages-artifact@56afc81e5204ec7fed67d7f0f8b0a6d2f6e9353
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e

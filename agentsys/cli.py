@@ -652,7 +652,15 @@ def cmd_metrics(args):
 def cmd_demo(args):
     if os.environ.get("AGENTSYS_DEMO") != "1" and not getattr(args, "force", False):
         die("demo only runs with AGENTSYS_DEMO=1 (used by tests) or pass --force")
-    print("agentsys demo: task → mock dispatch → verify → review → approval (see tests/test_e2e.py)")
+    from .demo_story import run_demo_story
+
+    def _step(msg):
+        print(f"demo · {msg}")
+
+    try:
+        run_demo_story(step=_step)
+    except RuntimeError as e:
+        die(str(e))
 
 
 def cmd_doctor(args):
