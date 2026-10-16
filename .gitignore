@@ -5,3 +5,12 @@ build/
 dist/
 .agent-system/
 .DS_Store
+.qa/
+*.db
+*.db-*
+.agent-system/
+*.worktrees/
+.env
+.env.*
+node_modules/
+tests/tmp-ledger.db

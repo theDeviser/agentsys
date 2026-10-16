@@ -539,7 +539,7 @@ const S = {
   proj: +(localStorage.getItem("agentsys.proj") || 0), projects: [], data: null, sig: "", fetchedAt: 0, error: null,
   view: localStorage.getItem("agentsys.view") || "overview", tabs: JSON.parse(localStorage.getItem("agentsys.tabs") || "[]"),
   active: localStorage.getItem("agentsys.active") || null, detail: {}, closed: JSON.parse(localStorage.getItem("agentsys.closed") || '{"Cancelled":true}'),
-  live: qs.get("live") !== "0", filter: "", expanded: {},
+  live: qs.get("live") !== "0", filter: "", activityAgent: "", expanded: {},
 };
 const VIEWS = [
   ["overview", "Overview", "What’s happening and what needs you"], ["flow", "Flow", "How each task moved between agents"],
@@ -584,7 +584,10 @@ function schedule() { clearInterval(timer); if (S.live) timer = setInterval(() =
 setInterval(() => { if (S.data) { renderStatus(); if (!S.live) return; document.querySelectorAll("[data-rel]").forEach((el) => { el.textContent = rel(+el.dataset.rel); }); } }, 15000);
 
 /* ---------- navigation ---------- */
-function openView(v) { S.view = v; S.active = null; persist(); render(); $("#content").scrollTop = 0; }
+function openView(v) {
+  if (S.view === "activity" && v !== "activity") { S.filter = ""; S.activityAgent = ""; }
+  S.view = v; S.active = null; persist(); render(); $("#content").scrollTop = 0;
+}
 async function openTask(id) {
   if (!S.tabs.includes(id)) S.tabs.push(id);
   S.active = id; persist(); render();
@@ -667,10 +670,21 @@ function headline(d) {
 /* ---------- render: chrome ---------- */
 function render() {
   if (!S.data) { $("#content").innerHTML = `<div class="empty">${S.error ? `<b>Can’t reach the agentsys server</b>${esc(S.error)}. Is <code>agentsys ui</code> still running?` : "Loading…"}</div>`; renderStatus(); return; }
-  const sc = $("#content").scrollTop, focused = document.activeElement?.id, sel = document.activeElement?.selectionStart;
-  renderActivity(); renderSide(); renderTabs(); renderMain(); renderStatus();
+  const sc = $("#content").scrollTop;
+  const focused = document.activeElement?.id;
+  const selStart = document.activeElement?.selectionStart;
+  const selEnd = document.activeElement?.selectionEnd;
+  const activityEditing = !S.active && S.view === "activity" && focused === "filter" && $("#activity-list");
+  renderActivity(); renderSide(); renderTabs();
+  if (activityEditing) renderActivityList();
+  else renderMain();
+  renderStatus();
   $("#content").scrollTop = sc;
-  if (focused && $("#" + focused)) { const el = $("#" + focused); el.focus(); if (sel != null && el.setSelectionRange) el.setSelectionRange(sel, sel); }
+  if (focused && $("#" + focused)) {
+    const el = $("#" + focused);
+    el.focus();
+    if (selStart != null && el.setSelectionRange) el.setSelectionRange(selStart, selEnd ?? selStart);
+  }
 }
 function renderActivity() {
   const d = S.data, need = attention(d).length;
@@ -902,12 +916,37 @@ function evRow(e) {
   const tone = /fail|refused|reject|escalate|block/.test(e.kind) || e.payload?.exit ? "color:var(--red)" : "";
   return `<div class="ev"><time title="${abs(e.ts)}">${clock(e.ts)}</time>${av(e.actor, "sm")}<div class="txt"><b>${esc(w.label)}</b>${w.account ? ` <span class="faint">${esc(w.account)}</span>` : ""} <span style="${tone}">${esc(describe(e))}</span>${why ? `<span class="why" title="${esc(why)}">${esc(why)}</span>` : ""}</div>${t ? `<a href="#" data-task="${t.id}" class="mono faint" title="${esc(t.title)}">${t.id}</a>` : "<span></span>"}</div>`;
 }
-function viewActivity(d) {
+function filterActivityEvents(d) {
   const f = S.filter.toLowerCase();
-  const evs = d.events.filter((e) => !f || [e.actor, e.kind, e.task_id, describe(e), whyOf(e), taskById(e.task_id)?.title].join(" ").toLowerCase().includes(f));
-  return `<div class="page"><h1>Activity</h1><p class="lede">Every change is logged in an append-only audit trail. Newest first, latest 120 events.</p>
-    <div class="toolbar"><input class="input" id="filter" placeholder="Filter by agent, task, or action" value="${esc(S.filter)}" aria-label="Filter activity"><span class="sub">${evs.length} shown</span></div>
-    <div class="list">${evs.map(evRow).join("") || '<div class="empty">No matching events.</div>'}</div></div>`;
+  const agent = S.activityAgent;
+  return d.events.filter((e) => {
+    if (agent) {
+      const ok = e.actor === agent || e.actor.startsWith(agent + ":") || e.actor.startsWith(agent);
+      if (!ok) return false;
+    }
+    if (!f) return true;
+    return [e.actor, e.kind, e.task_id, describe(e), whyOf(e), taskById(e.task_id)?.title].join(" ").toLowerCase().includes(f);
+  });
+}
+function activityListHtml(d) {
+  const evs = filterActivityEvents(d);
+  return evs.map(evRow).join("") || '<div class="empty">No matching events.</div>';
+}
+function renderActivityList() {
+  const list = $("#activity-list");
+  if (!list || !S.data) return false;
+  const evs = filterActivityEvents(S.data);
+  list.innerHTML = activityListHtml(S.data);
+  const c = $("#activity-count");
+  if (c) c.textContent = `${evs.length} shown`;
+  return true;
+}
+function viewActivity(d) {
+  const hint = S.activityAgent ? ` <span class="chip">agent ${esc(S.activityAgent)}</span>` : "";
+  const evs = filterActivityEvents(d);
+  return `<div class="page activity-view"><h1>Activity</h1><p class="lede">Every change is logged in an append-only audit trail. Newest first, latest 120 events.${hint}</p>
+    <div class="toolbar"><input class="input" id="filter" placeholder="Filter by agent, task, or action" value="${esc(S.filter)}" aria-label="Filter activity"><span class="sub" id="activity-count">${evs.length} shown</span></div>
+    <div class="list" id="activity-list">${activityListHtml(d)}</div></div>`;
 }
 
 /* ---------- task detail ---------- */
@@ -1119,11 +1158,13 @@ document.addEventListener("click", (e) => {
   if (ds.view) return openView(ds.view);
   if (ds.sec) { S.closed[ds.sec] = !S.closed[ds.sec]; persist(); return renderSide(); }
   if (ds.proj) return switchProj(+ds.proj);
-  if (ds.agent) { S.filter = who(ds.agent).label; S.view = "activity"; S.active = null; persist(); return render(); }
+  if (ds.agent) { S.activityAgent = ds.agent; S.filter = ""; S.view = "activity"; S.active = null; persist(); return render(); }
   if (ds.action === "live") return toggleLive();
   if (ds.action === "retry") return poll(true);
 });
-document.addEventListener("input", (e) => { if (e.target.id === "filter") { S.filter = e.target.value; renderMain(); } });
+document.addEventListener("input", (e) => {
+  if (e.target.id === "filter") { S.filter = e.target.value; S.activityAgent = ""; renderActivityList(); }
+});
 document.addEventListener("keydown", (e) => {
   const mod = e.metaKey || e.ctrlKey;
   if (mod && e.key.toLowerCase() === "k") { e.preventDefault(); $("#scrim").classList.contains("open") ? palClose() : palOpen(); }
