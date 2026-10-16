@@ -11,7 +11,7 @@ jobs:
       security-events: write
     steps:
       - uses: actions/checkout@11bd71901bbe5b1635ceea73d27597364c9af683
-      - uses: github/codeql-action/init@8c78abb9b62512e3c45dea6559ffd924ed8549c8
+      - uses: github/codeql-action/init@48ab28a6f5dbc2a99bf1e0131198dd8f1df78169
         with:
           languages: python
       - uses: github/codeql-action/analyze@8c78abb9b62512e3c45dea6559ffd924ed8549c8
