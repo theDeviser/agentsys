@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>agentsys — verified handoff across AI coding tools</title>
+<meta name="description" content="Local-first task coordination for Cursor, Claude Code, Codex, and humans. Gates, reviews, and hash-chained audit.">
+<link rel="stylesheet" href="/agentsys/css/tokens.css">
+<link rel="stylesheet" href="/agentsys/css/site.css">
+</head>
+<body class="page">
+<header class="top">
+  <a class="brand" href="/agentsys/">agentsys</a>
+  <nav>
+    <a href="https://github.com/theDeviser/agentsys">GitHub</a>
+    · <a href="/agentsys/changelog.html">Changelog</a>
+    · <a href="https://github.com/theDeviser/agentsys/blob/main/docs/index.md">Docs</a>
+  </nav>
+</header>
+<section class="hero">
+  <h1>Verified handoff across AI coding tools</h1>
+  <p class="lead">agentsys is a zero-dependency coordination layer (Python 3.9+, SQLite, git) so multiple agents share one task store. Nothing ships until automated checks pass, an independent identity reviews, and a human approves merge.</p>
+  <div class="cta">
+    <a class="btn btn-primary" id="install-cursor" href="#">Add MCP in Cursor</a>
+    <a class="btn" href="https://github.com/theDeviser/agentsys">View source</a>
+    <span class="btn" id="stars" aria-live="polite">★ …</span>
+  </div>
+  <pre class="code" id="quickstart">export PATH="$HOME/agentsys/bin:$PATH"
+export AGENTSYS_ACTOR=human:you
+agentsys init
+AGENTSYS_DEMO=1 agentsys demo --force</pre>
+</section>
+<section class="grid">
+  <article class="card">
+    <h3>Isolated worktrees</h3>
+    <p>Implement tasks run on agent branches with path scopes; overlapping work is refused.</p>
+  </article>
+  <article class="card">
+    <h3>Audit you can verify</h3>
+    <p>Hash-chained events and <code>agentsys verify-log</code> — local file, not cloud telemetry.</p>
+  </article>
+  <article class="card">
+    <h3>Honest budgets</h3>
+    <p>Per-provider accounts, never pooled. Dispatch is refused when caps would be exceeded.</p>
+  </article>
+  <article class="card">
+    <h3>Live dashboard</h3>
+    <p><code>agentsys ui</code> shows flow, runs, spend, and the exact CLI to run next.</p>
+  </article>
+</section>
+<footer class="foot">
+  MIT · Not affiliated with Cursor, Anthropic, or OpenAI.
+  <a href="/agentsys/changelog.html">Changelog</a>
+</footer>
+<script type="module">
+import { INSTALL_TARGETS, mcpConfigJson } from "/agentsys/js/install.js";
+document.getElementById("install-cursor").href = INSTALL_TARGETS.cursor;
+document.getElementById("quickstart").textContent += "\n\n# MCP config snippet:\n" + mcpConfigJson();
+fetch("https://api.github.com/repos/theDeviser/agentsys")
+  .then(r => r.ok ? r.json() : null)
+  .then(j => { if (j) document.getElementById("stars").textContent = `★ ${j.stargazers_count}`; })
+  .catch(() => {});
+</script>
+</body>
+</html>

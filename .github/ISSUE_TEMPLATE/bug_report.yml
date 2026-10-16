@@ -1,0 +1,14 @@
+name: Bug report
+description: Something broke in agentsys
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: agentsys version
+      placeholder: output of `agentsys --version`

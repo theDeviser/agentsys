@@ -1,5 +1,9 @@
 # agentsys
 
+[![ci](https://github.com/theDeviser/agentsys/actions/workflows/ci.yml/badge.svg)](https://github.com/theDeviser/agentsys/actions/workflows/ci.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](pyproject.toml)
+
 **Verified handoff and independent review across AI coding tools, local-first.**
 
 agentsys is a zero-dependency coordination layer (Python 3.9+, SQLite, git) so Cursor, Claude Code, Codex, and humans share one task store. Work is not done until an automated gate passes and a *different* identity reviews it; merges need a human. Hash-chained audit events, git hooks, MCP worker tools, and per-account budgets are first-class—not afterthoughts.
@@ -13,10 +17,13 @@ agentsys is a zero-dependency coordination layer (Python 3.9+, SQLite, git) so C
 ## Install
 
 ```sh
-git clone <this repo> ~/agentsys
+git clone https://github.com/theDeviser/agentsys.git ~/agentsys
 export PATH="$HOME/agentsys/bin:$PATH"     # or: pip install -e ~/agentsys
 agentsys --version
+AGENTSYS_DEMO=1 agentsys demo --force      # <30s scripted story
 ```
+
+**MCP (Cursor):** add a stdio server — `agentsys mcp --as cursor:you:work` — or use the [site install button](https://thedeviser.github.io/agentsys/) after Pages is live.
 
 ## Quick start
 
