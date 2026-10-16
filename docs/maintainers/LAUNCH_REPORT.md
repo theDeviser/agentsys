@@ -19,6 +19,12 @@ Date: 2026-10-16 · Actor: `agent:cursor:worker`
 - Adapter contract / full adversarial suite partially documented in `docs/PROGRESS.md`.
 - Taste skill (`Leonxlnx/taste-skill`) not installed; site reuses dashboard tokens manually.
 
+## CI / Pages (2026-10-16 follow-up)
+
+- **CI failure cause:** `ruff check` on the full tree (import order, unused imports, E731). Fixed in `62f22d9` — ruff config + small cleanups; `ruff check` and 54 tests pass locally.
+- **Site 404 cause:** GitHub Pages is not serving yet until **Settings → Pages → Source: GitHub Actions** is selected and the **`pages`** workflow completes. While the repo is **private**, only users with repo access can open the Pages URL (and org policy may block Pages until you go public).
+- **Local verify:** `./scripts/preview_site.sh` → http://127.0.0.1:8766/agentsys/
+
 ## Phase G — DevTools QA
 
 - Dashboard Activity filter: multi-char edit + poll while focused — OK (`.qa/dashboard-filter-fix/activity-filter.png`).
