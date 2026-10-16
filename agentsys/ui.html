@@ -478,11 +478,16 @@ const NOT_YET = [
   { name: "GitHub Copilot", vendor: "GitHub", icon: "githubcopilot" }, { name: "Mistral", vendor: "Mistral AI", icon: "mistral-color" },
   { name: "DeepSeek", vendor: "DeepSeek", icon: "deepseek-color" }, { name: "Ollama", vendor: "local models", icon: "ollama" },
 ];
-const harnessOf = (actor) => HARNESS[(actor || "").split(":")[0]] || { name: (actor || "?").split(":")[0], vendor: "", glyph: "box", c: "--c-system" };
+const harnessKey = (actor) => {
+  const p = (actor || "").split(":");
+  return p[0] === "agent" && p.length >= 2 ? p[1] : p[0];
+};
+const harnessOf = (actor) => HARNESS[harnessKey(actor)] || { name: harnessKey(actor), vendor: "", glyph: "box", c: "--c-system" };
 function who(actor) {
   const p = (actor || "?").split(":"); const h = harnessOf(actor);
-  const account = p[1] && p[0] !== "system" ? p[1] : "";
-  return { h, account, role: p[2] || "", label: h.name, full: actor };
+  const account = p[0] === "agent" ? (p[2] || "") : (p[1] && p[0] !== "system" ? p[1] : "");
+  const role = p[0] === "agent" ? (p[2] || "") : (p[2] || "");
+  return { h, account, role, label: h.name, full: actor };
 }
 function av(actor, cls = "", live = false) {
   const h = harnessOf(actor);

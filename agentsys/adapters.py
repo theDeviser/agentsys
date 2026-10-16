@@ -39,8 +39,10 @@ class RunResult:
 
 def _child_env():
     env = {k: v for k, v in os.environ.items() if k not in API_KEY_VARS}
+    env.pop("AGENTSYS_ACTOR", None)
     env["AGENT_BRIDGE_HEADLESS"] = "1"
     env["AGENTSYS_HEADLESS"] = "1"
+    env["AGENTSYS_DISPATCHED"] = "1"
     return env
 
 

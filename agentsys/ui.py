@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hmac
 import json
+import os
 import re
 import secrets
 import sqlite3
@@ -18,6 +19,7 @@ from urllib.parse import parse_qs, urlparse
 from . import budget
 from .adapters import ADAPTERS
 from .store import Store, TransitionError
+from .trust import HumanActionRefused, assert_human_actor, collect_provenance
 
 HERE = Path(__file__).parent
 PAGE = HERE / "ui.html"
@@ -37,11 +39,16 @@ STEP_LABEL = {"task.created": "created", "task.claim": "claimed", "dispatch.star
 
 def agent_key(actor: str) -> str:
     parts = (actor or "?").split(":")
+    if parts[0] == "agent" and len(parts) >= 3:
+        return f"agent:{parts[1]}"
     return ":".join(parts[:2])
 
 
 def provider_of(actor: str) -> str:
-    return HARNESS_PROVIDER.get((actor or "").split(":")[0], "other")
+    parts = (actor or "").split(":")
+    if parts[0] == "agent" and len(parts) >= 2:
+        return HARNESS_PROVIDER.get(parts[1], "other")
+    return HARNESS_PROVIDER.get(parts[0], "other")
 
 
 def live_runs(st: Store, events):
@@ -56,6 +63,13 @@ def live_runs(st: Store, events):
                         "provider": provider_of(e["actor"]), "adapter": p.get("adapter"), "estimate": p.get("estimate"),
                         "since": e["ts"]})
     return out
+
+
+def _account(actor: str) -> str:
+    p = (actor or "").split(":")
+    if p[0] == "agent" and len(p) >= 3:
+        return p[2]
+    return p[1] if len(p) >= 2 else ""
 
 
 def flows(tasks, events):
@@ -73,6 +87,12 @@ def flows(tasks, events):
             chain[-1]["ts_end"] = e["ts"]
         else:
             chain.append({**step, "steps": [step["did"]], "ts_end": e["ts"]})
+    for tid, chain in by_task.items():
+        workers = {_account(s["actor"]) for s in chain
+                     if any(x in s["steps"] for x in ("claimed", "ran", "submitted"))}
+        for s in chain:
+            if any(x in s["steps"] for x in ("approved", "requested changes")) and _account(s["actor"]) in workers:
+                s["same_account_review"] = True
     return {t["id"]: by_task.get(t["id"], []) for t in tasks}
 
 
@@ -184,6 +204,15 @@ def _int(v, lo, hi, field, optional=True):
 def apply_action(st: Store, actor: str, body: dict) -> str:
     """Perform one human action from the dashboard. Returns a sentence describing what happened."""
     kind = body.get("action")
+    human_kinds = ("approval.grant", "approval.deny", "task.requeue", "task.unblock", "task.cancel")
+    if kind in human_kinds:
+        try:
+            prov = assert_human_actor(actor, kind, dashboard_ok=True)
+        except HumanActionRefused as e:
+            raise BadRequest(str(e)) from e
+        os.environ["AGENTSYS_DASHBOARD_OK"] = "1"
+    else:
+        prov = {}
     if kind == "budget.set":
         provider, account = str(body.get("provider", "")), str(body.get("account", ""))
         if not (NAME.fullmatch(provider) and NAME.fullmatch(account)):
@@ -202,14 +231,14 @@ def apply_action(st: Store, actor: str, body: dict) -> str:
         return f"Saved limits for {provider}/{account}"
     if kind in ("approval.grant", "approval.deny"):
         aid = _int(body.get("id"), 1, 10**9, "approval id", optional=False)
-        st.decide_approval(aid, actor, kind == "approval.grant")
+        st.decide_approval(aid, actor, kind == "approval.grant", provenance=prov)
         return f"Approval #{aid} {'granted' if kind == 'approval.grant' else 'denied'}"
     if kind in ("task.requeue", "task.unblock", "task.cancel"):
         tid = str(body.get("id", ""))
         if not TASK_ID.fullmatch(tid):
             raise BadRequest("bad task id")
         if kind == "task.cancel":
-            st.cancel(tid, actor, str(body.get("reason") or "cancelled from the dashboard")[:300])
+            st.cancel(tid, actor, str(body.get("reason") or "cancelled from the dashboard")[:300], provenance=prov)
             return f"{tid} cancelled"
         st.transition(tid, kind.split(".")[1], actor, owner=None, lease_expires=None)
         return f"{tid} is back in the queue"
