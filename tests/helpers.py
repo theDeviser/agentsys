@@ -61,8 +61,8 @@ class IsolatedEnv:
             os.environ["AGENTSYS_LEDGER"] = self._old_ledger
         shutil.rmtree(self.tmp, ignore_errors=True)
 
-    def cli(self, *args, actor=None, ok=True, cwd=None):
-        e = dict(self.env)
+    def cli(self, *args, actor=None, ok=True, cwd=None, env=None):
+        e = dict(self.env, **(env or {}))
         if actor:
             e["AGENTSYS_ACTOR"] = actor
         p = subprocess.run(CLI + list(args), cwd=str(cwd or self.root), capture_output=True, text=True, env=e)

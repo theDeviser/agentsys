@@ -385,10 +385,29 @@ def brief(st, tid) -> str:
         lines.append(f"- worktree: {t['worktree'] or '(created on claim)'} · branch: {t['branch'] or '-'} · "
                      f"base: {(t['base'] or '')[:10]}")
         if t["worktree"] and Path(t["worktree"]).exists():
-            dirty = gitops.git(["status", "--porcelain"], t["worktree"]).stdout.strip()
+            wt = Path(t["worktree"])
+            dirty = gitops.git(["status", "--porcelain"], wt).stdout.strip()
             if dirty:
-                lines.append("- UNCOMMITTED changes in worktree (left by a previous attempt; inspect before continuing):")
+                lines.append("- UNCOMMITTED changes in worktree [git-derived]:")
                 lines += [f"    {l}" for l in dirty.splitlines()[:20]]
+            if t.get("base"):
+                log = gitops.git(["log", "--oneline", f"{t['base']}..HEAD"], wt, check=False).stdout.strip()
+                stat = gitops.git(["diff", "--stat", f"{t['base']}..HEAD"], wt, check=False).stdout.strip()
+                lines += ["", "## Commits since base [git-derived]", log or "(none)"]
+                lines += ["", "## Diff stat since base [git-derived]", stat or "(none)"]
+    for e in reversed(st.events(tid)):
+        if e["kind"] == "verify.results":
+            ok = (e.get("payload") or {}).get("ok")
+            nt = (e.get("payload") or {}).get("no_tests")
+            label = "pass" if ok else "fail"
+            if ok and nt:
+                label = "pass (no tests)"
+            lines += ["", f"## Last automated gate [agent-recorded]: {label}"]
+            break
+    for e in reversed(st.events(tid)):
+        if e["kind"] == "task.heartbeat":
+            lines += [f"- last heartbeat [agent-recorded]: {ago(e['ts'])} ago"]
+            break
     if t["checks"]:
         lines.append(f"- checks run at verify: {t['checks']}")
     if t["deps"]:
@@ -417,6 +436,16 @@ def brief(st, tid) -> str:
 
 def cmd_resume(args):
     print(brief(open_store(args), args.id))
+
+
+def cmd_handoff(args):
+    st = open_store(args)
+    t = st.get(args.id)
+    print(brief(st, args.id))
+    harness = args.to or "cursor"
+    print("")
+    print(f"Hand off to {harness}:")
+    print(f"  agentsys dispatch {t['id']} --adapter {harness} --account <name>")
 
 
 AGENT_RULES = """
@@ -704,6 +733,9 @@ def build_parser():
     lg.add_argument("id", nargs="?")
     lg.add_argument("--limit", type=int)
     sp("resume", cmd_resume, "self-contained brief to continue a task from its last verified checkpoint").add_argument("id")
+    ho = sp("handoff", cmd_handoff, "resume brief plus the next dispatch command for a harness")
+    ho.add_argument("id")
+    ho.add_argument("--to", help="target harness (cursor, codex, claude, mock)")
 
     d = sp("dispatch", cmd_dispatch, "run a headless agent on a task, within budget")
     d.add_argument("id")
