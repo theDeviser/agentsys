@@ -19,6 +19,10 @@ CREATE TABLE IF NOT EXISTS runs (
   UNIQUE (project, local_id)
 );
 CREATE INDEX IF NOT EXISTS runs_acct ON runs(provider, account, ts_start);
+CREATE TABLE IF NOT EXISTS imported_usage (
+  external_id TEXT PRIMARY KEY, provider TEXT NOT NULL, tokens INTEGER NOT NULL,
+  model TEXT, ts REAL NOT NULL
+);
 CREATE TABLE IF NOT EXISTS budgets (
   provider TEXT NOT NULL, account TEXT NOT NULL, limit_tokens INTEGER NOT NULL,
   reserve_pct REAL NOT NULL DEFAULT 20, source TEXT NOT NULL, note TEXT, updated_at REAL NOT NULL,
@@ -89,3 +93,13 @@ class Ledger:
     def budget(self, provider, account):
         row = self.db.execute("SELECT * FROM budgets WHERE provider=? AND account=?", (provider, account)).fetchone()
         return dict(row) if row else None
+
+    def import_usage_row(self, row: dict) -> bool:
+        try:
+            self.db.execute(
+                "INSERT INTO imported_usage (external_id, provider, tokens, model, ts) VALUES (?,?,?,?,?)",
+                (row["id"], row["provider"], row["tokens"], row.get("model"), row.get("ts") or time.time()),
+            )
+            return True
+        except sqlite3.IntegrityError:
+            return False
