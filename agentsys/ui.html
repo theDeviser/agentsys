@@ -506,7 +506,12 @@ const STATE = {
   escalated: { label: "Needs you", cls: "s-bad", say: "Out of attempts. A human has to decide what happens next." },
   cancelled: { label: "Cancelled", cls: "s-idle", say: "Cancelled." },
 };
-const stateBadge = (s) => { const m = STATE[s] || { label: s, cls: "" }; return `<span class="badge ${m.cls}"><span class="pip"></span>${esc(m.label)}</span>`; };
+const stateBadge = (s, t) => {
+  const m = STATE[s] || { label: s, cls: "" };
+  const label = (t && t.state_label) || m.label;
+  const cls = (t && t.state_label && s === "verified") ? "s-check" : m.cls;
+  return `<span class="badge ${cls}"><span class="pip"></span>${esc(label)}</span>`;
+};
 const GROUPS = [
   ["Needs you", ["escalated", "blocked"]], ["Working", ["in_progress"]], ["Checking & review", ["submitted", "verified", "changes_requested"]],
   ["Queued", ["ready"]], ["Done", ["accepted", "merged"]], ["Cancelled", ["cancelled"]],
@@ -797,7 +802,7 @@ function flowRow(t) {
     return `${i ? ARROW : ""}<div class="hop${isLive ? " live" : ""}${selfReview ? " self" : ""}" title="${esc(tip)}">${av(s.actor, "sm", isLive)}<div style="min-width:0"><div class="who">${esc(w.label)}${selfReview ? ` <span class="self-flag">same account</span>` : ""}</div><div class="did">${esc(s.steps.join(" · "))}</div></div></div>`;
   }).join("");
   const deps = (t.deps || []).map((x) => `<a href="#" class="dep" data-task="${x}" title="${esc(taskById(x)?.title || x)}">after ${esc(x)}</a>`).join(" ");
-  return `<div class="flow-row"><button class="flow-task" data-task="${t.id}"><span class="t">${esc(t.title)}</span><span class="m">${stateBadge(t.state)}<span class="chip">${esc(t.kind)}</span>${deps}</span></button><div class="chain">${hops || '<span class="muted">No activity yet</span>'}</div></div>`;
+  return `<div class="flow-row"><button class="flow-task" data-task="${t.id}"><span class="t">${esc(t.title)}</span><span class="m">${stateBadge(t.state, t)}<span class="chip">${esc(t.kind)}</span>${deps}</span></button><div class="chain">${hops || '<span class="muted">No activity yet</span>'}</div></div>`;
 }
 function viewFlow(d) {
   const ts = [...d.tasks].sort((a, b) => a.created_at - b.created_at);
@@ -924,7 +929,7 @@ function viewTask(id) {
   let say = STATE[t.state]?.say || "";
   if (t.state === "in_progress" && t.owner) say = `${who(t.owner).label}${who(t.owner).account ? " (" + who(t.owner).account + ")" : ""} is working on it${live ? `, with a run going for ${dur(nowS() - live.since)}` : ""}.`;
   const [nextTxt, nextCmd] = nextStep(t);
-  let h = `<div class="page"><div style="display:flex;align-items:center;gap:8px">${stateBadge(t.state)}<span class="chip">${esc(t.kind)}</span><span class="mono faint">${esc(t.id)}</span></div>
+  let h = `<div class="page"><div style="display:flex;align-items:center;gap:8px">${stateBadge(t.state, t)}<span class="chip">${esc(t.kind)}</span><span class="mono faint">${esc(t.id)}</span></div>
     <h1>${esc(t.title)}</h1><p class="lede" style="font-size:var(--fs);line-height:20px">${esc(say)}</p>
     <div class="next"><b>Next</b><span>${esc(nextTxt)}</span>${nextCmd ? `<div class="cmd"><span>${esc(nextCmd)}</span><button data-copy="${esc(nextCmd)}" aria-label="Copy command">Copy</button></div>` : ""}<span class="next-acts">${actButtons(taskActs(t))}</span></div>
     ${t.state !== "cancelled" ? stepper(t) : ""}`;

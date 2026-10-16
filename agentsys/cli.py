@@ -8,7 +8,7 @@ import sys
 import time
 from pathlib import Path
 
-from . import __version__, budget, gitops, hooks, mcp, trust, verify
+from . import __version__, budget, gitops, hooks, mcp, profile, trust, verify
 from .trust import HumanActionRefused
 from .adapters import ADAPTERS
 from .store import Store, TransitionError
@@ -221,16 +221,17 @@ def cmd_verify(args):
     t = st.get(args.id)
     if t["state"] != "submitted":
         die(f"{t['id']} is '{t['state']}'; only submitted tasks are verified")
-    results = verify.run_pipeline(t, st.findings(t["id"]))
+    results, no_tests = verify.run_pipeline(t, st.findings(t["id"]))
     ok = verify.passed(results)
     sha = gitops.head_sha(t["worktree"]) if t["worktree"] and Path(t["worktree"]).exists() else None
     for r in results:
         print(f"  [{r['status']:>7}] {r['check']}: {r['detail']}")
-    st.event(actor, t["id"], "verify.results", {"ok": ok, "sha": sha, "results": results})
+    st.event(actor, t["id"], "verify.results", {"ok": ok, "sha": sha, "results": results, "no_tests": no_tests})
     if ok:
         st.mark_verified(t["id"], sha)
-    t = st.transition(t["id"], "verify_pass" if ok else "verify_fail", actor, {"sha": sha})
-    print(f"{t['id']} -> {t['state']}" + ("; next: an independent reviewer runs `agentsys review`" if ok else ""))
+    t = st.transition(t["id"], "verify_pass" if ok else "verify_fail", actor, {"sha": sha, "no_tests": no_tests})
+    label = "verified (no tests)" if ok and no_tests else t["state"]
+    print(f"{t['id']} -> {label}" + ("; next: an independent reviewer runs `agentsys review`" if ok else ""))
     if not ok:
         sys.exit(2)
 
@@ -598,6 +599,22 @@ def cmd_hooks(args):
     die(f"unknown hooks subcommand {sub}")
 
 
+def cmd_profile_detect(args):
+    root = root_of(open_store(args))
+    prop = profile.detect(root)
+    print(json.dumps(prop, indent=2))
+
+
+def cmd_profile_save(args):
+    root = root_of(open_store(args))
+    if args.file:
+        data = json.loads(Path(args.file).read_text(encoding="utf-8"))
+    else:
+        data = profile.detect(root)
+    out = profile.save(root, data)
+    print(f"saved {out}")
+
+
 def cmd_mcp(args):
     db = args.db or os.environ.get("AGENTSYS_DB")
     if not db:
@@ -730,6 +747,11 @@ def build_parser():
     hk.add_parser("merge-check").set_defaults(fn=cmd_hooks)
     hk.add_parser("push-check").set_defaults(fn=cmd_hooks)
     mc = sp("mcp", cmd_mcp, "stdio MCP server (worker tools only)")
+    pr = sub.add_parser("profile", help="repo verification profile").add_subparsers(dest="sub", required=True)
+    pr.add_parser("detect").set_defaults(fn=cmd_profile_detect)
+    ps = pr.add_parser("save")
+    ps.set_defaults(fn=cmd_profile_save)
+    ps.add_argument("--file", type=Path, help="JSON to save (default: write detected proposal path)")
     vl = sp("verify-log", cmd_verify_log, "verify tamper-evident event hash chain")
     vl.add_argument("--strict", action="store_true", help="treat unsigned approvals as failures")
     ap = sub.add_parser("approver", help="optional passphrase for signed human approvals").add_subparsers(dest="sub", required=True)
