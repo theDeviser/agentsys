@@ -1,0 +1,24 @@
+# Example CI job: refuse agent/* branches until agentsys marks the task accepted.
+# Copy into your pipeline and set AGENTSYS_DB to the project store (or run from repo root).
+
+name: agentsys-branch-gate
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  check-agent-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install agentsys
+        run: pip install .  # or checkout agentsys and add bin/ to PATH
+      - name: Verify agent branch
+        run: |
+          BR="${{ github.head_ref }}"
+          if [[ "$BR" == agent/* ]]; then
+            agentsys check-branch "$BR" --as system:ci
+          else
+            echo "not an agent branch; skip"
+          fi

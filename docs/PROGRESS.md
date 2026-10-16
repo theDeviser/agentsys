@@ -18,6 +18,13 @@ Agent identity for this work: `agent:cursor:worker`. Plan: `cursor_agent_prompt.
 - **Test-only:** `AGENTSYS_TEST_SUITE=1` bypasses TTY for human provenance in unit tests (not for production use).
 - **Still weak:** approval signatures not verified in `verify-log` without passphrase; same-user shell can still impersonate `human:*` with a TTY.
 
+## Phase 2 — git hooks, check-branch, MCP
+
+- `agentsys hooks install|uninstall|merge-check|push-check`; `check-branch` with human `--override-reason`.
+- `agentsys/mcp.py` stdio JSON-RPC (`initialize`, `tools/list`, `tools/call`); worker tools only.
+- `docs/ci-example.yml`, `docs/integrations.md` (vendor snippets marked *unverified*).
+- Tests: `tests/test_hooks_mcp.py`. Suite: **39 passed** on 3.9.6.
+
 ## Open stop-and-ask
 
 (none yet)
