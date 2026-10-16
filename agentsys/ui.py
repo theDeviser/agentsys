@@ -19,7 +19,7 @@ from urllib.parse import parse_qs, urlparse
 from . import budget
 from .adapters import ADAPTERS
 from .store import Store, TransitionError
-from .trust import HumanActionRefused, assert_human_actor, collect_provenance
+from .trust import HumanActionRefused, assert_human_actor
 
 HERE = Path(__file__).parent
 PAGE = HERE / "ui.html"

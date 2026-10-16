@@ -103,7 +103,6 @@ def run_profile(worktree: Path, profile: dict | None) -> tuple[list, bool]:
             dur = time.time() - t0
             out = out or ""
             digest = hashlib.sha256(out.encode()).hexdigest()[:16]
-            tail = "\n".join(out.splitlines()[-OUTPUT_TAIL:])
             secret_hits = scan_output(out)
             ok = p.returncode == 0 and not secret_hits
             detail = f"exit {p.returncode}, {dur:.1f}s, sha256:{digest}"

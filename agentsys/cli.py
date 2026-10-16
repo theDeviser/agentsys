@@ -827,7 +827,7 @@ def build_parser():
     hk.add_parser("uninstall").set_defaults(fn=cmd_hooks)
     hk.add_parser("merge-check").set_defaults(fn=cmd_hooks)
     hk.add_parser("push-check").set_defaults(fn=cmd_hooks)
-    mc = sp("mcp", cmd_mcp, "stdio MCP server (worker tools only)")
+    sp("mcp", cmd_mcp, "stdio MCP server (worker tools only)")
     pr = sub.add_parser("profile", help="repo verification profile").add_subparsers(dest="sub", required=True)
     pr.add_parser("detect").set_defaults(fn=cmd_profile_detect)
     ps = pr.add_parser("save")
