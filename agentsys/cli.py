@@ -8,7 +8,8 @@ import sys
 import time
 from pathlib import Path
 
-from . import __version__, budget, gitops, hooks, mcp, profile, trust, verify
+from . import __version__, budget, gitops, hooks, mcp, profile, trust, usage_import, verify
+from .doctor import run_doctor
 from .trust import HumanActionRefused
 from .adapters import ADAPTERS
 from .store import Store, TransitionError
@@ -628,6 +629,38 @@ def cmd_hooks(args):
     die(f"unknown hooks subcommand {sub}")
 
 
+def cmd_usage_import(args):
+    st = open_store(args)
+    vendor = args.vendor
+    path = Path(args.file)
+    if not path.is_file():
+        die(f"file not found: {path}")
+    stats = usage_import.import_file(path, vendor, st.ledger)
+    print(json.dumps(stats, indent=2))
+    st.event(actor_of(args), None, "usage.import", {"vendor": vendor, **stats, "file": str(path.name)})
+
+
+def cmd_metrics(args):
+    st = open_store(args)
+    tasks = st.list()
+    counts = {}
+    for t in tasks:
+        counts[t["state"]] = counts.get(t["state"], 0) + 1
+    print(json.dumps({"tasks": len(tasks), "by_state": counts, "runs": len(st.runs())}, indent=2))
+
+
+def cmd_demo(args):
+    if os.environ.get("AGENTSYS_DEMO") != "1" and not getattr(args, "force", False):
+        die("demo only runs with AGENTSYS_DEMO=1 (used by tests) or pass --force")
+    print("agentsys demo: task → mock dispatch → verify → review → approval (see tests/test_e2e.py)")
+
+
+def cmd_doctor(args):
+    st = open_store(args)
+    for row in run_doctor(st):
+        print(f"[{row['status']:<4}] {row['check']}: {row['detail']}")
+
+
 def cmd_profile_detect(args):
     root = root_of(open_store(args))
     prop = profile.detect(root)
@@ -769,7 +802,15 @@ def build_parser():
     ua.add_argument("--task")
     ua.add_argument("--model")
     ua.add_argument("--note")
+    ui = u.add_parser("import")
+    ui.set_defaults(fn=cmd_usage_import)
+    ui.add_argument("vendor", choices=("claude", "codex", "cursor"))
+    ui.add_argument("file", type=Path)
     sp("adapters", cmd_adapters, "detect available agent CLIs")
+    sp("doctor", cmd_doctor, "pass/warn/fail health table")
+    sp("metrics", cmd_metrics, "local task/run counters")
+    dm = sp("demo", cmd_demo, "scripted onboarding story (<30s)")
+    dm.add_argument("--force", action="store_true")
     cb = sp("check-branch", cmd_check_branch, "CI: exit 0 only if an agent/* branch is accepted or merged")
     cb.add_argument("branch")
     cb.add_argument("--override-reason", help="human-only: record why this push/merge is allowed anyway")

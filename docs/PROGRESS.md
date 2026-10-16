@@ -31,6 +31,33 @@ Agent identity for this work: `agent:cursor:worker`. Plan: `cursor_agent_prompt.
 - `verified (no tests)` in CLI verify output and dashboard `state_label`.
 - Tests: `tests/test_profile.py`. Suite: **43 passed** on 3.9.6.
 
+## Phase 4 — handoff
+
+- Git-derived sections in `resume` / `brief`; `handoff --to`; tests in `tests/test_handoff.py`.
+
+## Phase 5 — budgets / usage
+
+- Conservative `estimate()` (max of last 5, p80 with ≥10 runs); cap labels in `budget.summary`.
+- `usage import` from synthetic fixtures; dedupe via `imported_usage` table (no prompt text).
+- Tests: `tests/test_usage.py`.
+
+## Phase 6 — adapters / doctor
+
+- `agentsys doctor` table (`agentsys/doctor.py`).
+
+## Phase 7 — packaging / onboarding
+
+- README positioning rewrite; issue template; `tests/test_help.py`; `agentsys demo --force`.
+
+## Phase 8 — dashboard QA
+
+- `docs/MANUAL_QA.md` (automated dashboard checks remain in `test_agentsys`).
+
+## Phase 9 — release readiness
+
+- `tests/test_e2e.py`, `tests/test_adversarial.py`, `agentsys metrics`, `docs/REVIEW_REPORT.md`.
+- Suite: **51 passed** on 3.9.6; spot OK on 3.11 and 3.12.
+
 ## Open stop-and-ask
 
-(none yet)
+- **Phase 7:** System Python setuptools 58 still blocks `pip install .` without a newer venv; source-tree CLI + `scripts/test.sh` are verified instead.

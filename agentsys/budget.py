@@ -39,9 +39,18 @@ def spend_usd(store, provider, account, since=None):
 
 
 def estimate(store, adapter, account) -> int:
-    recent = [r for r in store.account_runs(adapter.provider, account) if r["adapter"] == adapter.name][-5:]
-    vals = [run_total(r) for r in recent if r["usage_source"] == "provider-reported"]
-    return int(sum(vals) / len(vals)) if vals else adapter.default_estimate
+    recent = [run_total(r) for r in store.account_runs(adapter.provider, account) if r["adapter"] == adapter.name]
+    reported = [v for v in recent if v]
+    if len(reported) >= 10:
+        reported = sorted(reported)
+        idx = max(0, int(len(reported) * 0.8) - 1)
+        return int(reported[idx])
+    if reported:
+        return int(max(reported[-5:]))
+    return adapter.default_estimate
+
+
+ADVISORY_PROVIDERS = {"anthropic", "openai", "cursor"}
 
 
 def summary(store, provider, account):
@@ -59,6 +68,18 @@ def summary(store, provider, account):
                reserve_pct=b["reserve_pct"], source=b["source"], note=b.get("note"))
     if limit:
         out.update(remaining=limit - used, pct=round(100 * used / limit, 1))
+    ref = (b or {}).get("reference_limit")
+    if ref:
+        out["window_pct"] = round(100 * used / ref, 1)
+    runs = store.account_runs(provider, account)[-5:]
+    if runs:
+        out["estimate_vs_actual"] = [
+            {"estimate": r.get("tokens_estimate"), "actual": run_total(r), "task_id": r.get("task_id")}
+            for r in runs
+        ]
+    out["cap_enforcement"] = "enforced-before-run"
+    if provider in ADVISORY_PROVIDERS:
+        out["cap_note"] = "advisory mid-run (subscription CLIs cannot be stopped on tokens)"
     return out
 
 

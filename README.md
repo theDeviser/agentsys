@@ -1,8 +1,8 @@
 # agentsys
 
-Durable, auditable task coordination for multiple coding agents (Cursor, Claude Code, Codex, or a human), across different providers and accounts.
+**Verified handoff and independent review across AI coding tools, local-first.**
 
-Agents built by different companies can't talk to each other directly. agentsys doesn't pretend they can. It gives them **one shared task store** and **one CLI**. Any agent that can run a shell command can claim a task, hand findings to another agent, checkpoint, and submit. Nothing counts as done until a verification pipeline and an independent reviewer accept it.
+agentsys is a zero-dependency coordination layer (Python 3.9+, SQLite, git) so Cursor, Claude Code, Codex, and humans share one task store. Work is not done until an automated gate passes and a *different* identity reviews it; merges need a human. Hash-chained audit events, git hooks, MCP worker tools, and per-account budgets are first-class—not afterthoughts.
 
 - **Zero dependencies.** Python ≥ 3.9 standard library, SQLite, and git.
 - **Survives crashes.** Claims are time-limited leases. If an agent dies, its task returns to the queue, and the next agent gets a brief that includes the partial work left behind.
@@ -127,6 +127,9 @@ Adapters strip provider API-key variables from the child environment, so a run n
 
 ```sh
 python3 -m unittest discover -s tests -v
+agentsys verify-log
+agentsys doctor
+agentsys mcp    # stdio worker MCP; see docs/integrations.md
 ```
 
 ## License
