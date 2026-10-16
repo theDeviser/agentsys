@@ -10,6 +10,7 @@ import tempfile
 from pathlib import Path
 
 from . import gitops
+from .profile import load as load_profile, run_profile
 from .store import path_allowed
 
 SECRET_PATTERNS = [
@@ -99,19 +100,22 @@ def check_commands(worktree: Path, commands, timeout=600):
 def run_pipeline(task, findings) -> list:
     if task["kind"] == "research":
         evidenced = [f for f in findings if f["kind"] in ("finding", "artifact", "output") and f["evidence"]]
-        return [_result("evidence", bool(evidenced),
-                         f"{len(evidenced)} finding(s) with evidence" if evidenced else
-                         "research tasks need at least one finding with --evidence")]
+        return ([_result("evidence", bool(evidenced),
+                          f"{len(evidenced)} finding(s) with evidence" if evidenced else
+                          "research tasks need at least one finding with --evidence")], False)
     wt = Path(task["worktree"] or "")
     if not task["worktree"] or not wt.exists():
-        return [_result("worktree", False, "task has no worktree")]
+        return ([_result("worktree", False, "task has no worktree")], False)
     if not gitops.is_clean(wt):
-        return [_result("clean-tree", False, "uncommitted changes in worktree; checkpoint --commit first")]
+        return ([_result("clean-tree", False, "uncommitted changes in worktree; checkpoint --commit first")], False)
     changed = gitops.changed_files(wt, task["base"])
     results = [check_scope(changed, task["allowed_paths"]), check_syntax(wt, changed),
                check_secrets(wt, task["base"], changed)]
     results += check_commands(wt, task["checks"])
-    return results
+    root = gitops.project_root(wt)
+    prof_results, no_tests = run_profile(wt, load_profile(root))
+    results += prof_results
+    return results, no_tests
 
 
 def passed(results) -> bool:

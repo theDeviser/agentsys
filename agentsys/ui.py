@@ -140,6 +140,16 @@ def snapshot(st: Store) -> dict:
     for t in tasks:
         t["finding_counts"] = counts.get(t["id"], {})
     events = st.events(limit=100000)
+    verify_meta = {}
+    for e in events:
+        if e["kind"] == "verify.results" and e["task_id"]:
+            verify_meta[e["task_id"]] = e.get("payload") or {}
+    for t in tasks:
+        p = verify_meta.get(t["id"], {})
+        if t["state"] == "verified" and p.get("no_tests"):
+            t["state_label"] = "verified (no tests)"
+        elif t["state"] == "verified":
+            t["state_label"] = "verified"
     events.sort(key=lambda e: e["ts"])
     live = live_runs(st, events)
     accounts = {(b["provider"], b["account"]) for b in st.budgets()}

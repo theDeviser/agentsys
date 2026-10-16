@@ -25,6 +25,12 @@ Agent identity for this work: `agent:cursor:worker`. Plan: `cursor_agent_prompt.
 - `docs/ci-example.yml`, `docs/integrations.md` (vendor snippets marked *unverified*).
 - Tests: `tests/test_hooks_mcp.py`. Suite: **39 passed** on 3.9.6.
 
+## Phase 3 — verification profiles
+
+- `.agentsys/profile.json`, `profile detect` / `profile save`, gate runs profile in worktree (process-group kill on timeout).
+- `verified (no tests)` in CLI verify output and dashboard `state_label`.
+- Tests: `tests/test_profile.py`. Suite: **43 passed** on 3.9.6.
+
 ## Open stop-and-ask
 
 (none yet)
