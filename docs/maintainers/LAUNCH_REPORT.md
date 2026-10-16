@@ -17,7 +17,7 @@ Date: 2026-10-16 · Actor: `agent:cursor:worker`
 
 - `pip install .` on system Python 3.9 may fail if setuptools &lt; 61 — use venv or `pip install -U setuptools`.
 - Adapter contract / full adversarial suite partially documented in `docs/PROGRESS.md`.
-- Taste skill (`Leonxlnx/taste-skill`) not installed; site reuses dashboard tokens manually.
+- ~~Taste skill not installed~~ **Done (2026-10-16):** `Leonxlnx/taste-skill` @ `f624f37`, direction **one-motif** seed `1493399760`, Stack Sans + card pastels. Idea: hash-chained audit as page spine; live chain replay in `site/js/chain.js`.
 
 ## CI / Pages (2026-10-16 follow-up)
 
@@ -39,6 +39,19 @@ Date: 2026-10-16 · Actor: `agent:cursor:worker`
 - [ ] Run Lighthouse on live Pages after first deploy
 - [ ] Seed issues from `docs/maintainers/seed-issues.md` (draft only)
 
+## Landing redesign (taste-skill)
+
+| Item | Value |
+|------|--------|
+| Skill SHA | `f624f37` |
+| Direction | `one-motif`, seed `1493399760`, sector `dev-tool` |
+| Idea | Audit log chain is the page spine; replay + tamper in hero |
+| Lint / inspect | 0 FAIL; 3 WARN (em-dash, no-footage, critique floor) |
+| README | `assets/banner-*.png`, `assets/demo-terminal.png` (no GIF tool; static terminal) |
+| Image credits | `site/THIRD_PARTY_NOTICES.md`, `site/img/credits.json` |
+
+Critique (desktop fold): hero reads clearly; magenta motif carries brand; chain panel visible above fold. Remaining polish: optional video loop per skill WARN.
+
 ## Installed tools used
 
-- Python 3.9.6 unittest, Chrome DevTools MCP (dashboard QA)
+- Python 3.9.6 unittest, Chrome DevTools MCP (dashboard QA), taste-skill `lint.mjs` / `inspect.mjs` / `assets.mjs`

@@ -13,4 +13,6 @@ dist/
 .env
 .env.*
 node_modules/
+.taste-skill/
+.agents/
 tests/tmp-ledger.db

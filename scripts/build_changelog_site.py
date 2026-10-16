@@ -72,15 +72,16 @@ def wrap(body: str) -> str:
 <link rel="stylesheet" href="{BASE}css/tokens.css">
 <link rel="stylesheet" href="{BASE}css/site.css">
 </head>
-<body class="page">
+<body>
 <header class="top">
-  <a class="brand" href="{BASE}">agentsys</a>
-  <nav><a href="{BASE}">Home</a> · <a href="{BASE}changelog.html">Changelog</a></nav>
+  <a class="wordmark" href="{BASE}">agentsys</a>
+  <nav><a href="{BASE}">Home</a><a href="{BASE}changelog.html">Changelog</a></nav>
 </header>
-<main class="prose">
+<main class="prose shell">
 {body}
 </main>
-<footer class="foot"><a href="https://github.com/theDeviser/agentsys">GitHub</a></footer>
+<footer class="site-footer" style="padding:48px var(--margin)"><div class="shell"><a href="https://github.com/theDeviser/agentsys">GitHub</a></div></footer>
+<link href="https://fonts.googleapis.com/css2?family=Stack+Sans+Headline:wght@300&family=Stack+Sans+Text:wght@400;500&display=swap" rel="stylesheet">
 </body>
 </html>
 """
