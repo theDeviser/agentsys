@@ -41,6 +41,8 @@ class GitRepo(unittest.TestCase):
         sh(["git", "commit", "-q", "-m", "init"], self.root)
         self.env = {k: v for k, v in os.environ.items() if not k.startswith("AGENTSYS_")}
         self.env["AGENTSYS_LEDGER"] = str(self.tmp / "ledger.db")
+        self.env["AGENTSYS_TEST_SUITE"] = "1"
+        self.env["AGENTSYS_SKIP_TTY_CONFIRM"] = "1"
         self._old_ledger = os.environ.get("AGENTSYS_LEDGER")
         os.environ["AGENTSYS_LEDGER"] = self.env["AGENTSYS_LEDGER"]
 

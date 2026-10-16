@@ -8,7 +8,8 @@ import sys
 import time
 from pathlib import Path
 
-from . import __version__, budget, gitops, verify
+from . import __version__, budget, gitops, trust, verify
+from .trust import HumanActionRefused
 from .adapters import ADAPTERS
 from .store import Store, TransitionError
 
@@ -47,6 +48,26 @@ def next_step(t) -> str:
 def die(msg, code=1):
     print(f"agentsys: {msg}", file=sys.stderr)
     sys.exit(code)
+
+
+def _guard_human(actor, verb, confirm=None):
+    try:
+        return trust.assert_human_actor(actor, verb)
+    except HumanActionRefused as e:
+        die(str(e))
+    if confirm and not trust.confirm_on_tty(confirm):
+        die("confirmation declined")
+    return trust.collect_provenance()
+
+
+def _approver_sig(aid, grant, passphrase):
+    if not trust.approver_configured():
+        return ""
+    if not passphrase:
+        die("approver passphrase required (set AGENTSYS_APPROVER_PASS for non-interactive use)")
+    if not trust.verify_passphrase(passphrase):
+        die("wrong approver passphrase")
+    return trust.approval_signature(passphrase, f"approval:{aid}:{grant}")
 
 
 def actor_of(args):
@@ -132,12 +153,15 @@ def cmd_claim(args):
         print(f"claimed {t['id']} (attempt {t['attempts']}); read-only task, work in: {root_of(st)}")
 
 
-def cmd_simple(action, owner_only=False, extra_key=None):
+def cmd_simple(action, owner_only=False, extra_key=None, human=False):
     def run(args):
+        actor = actor_of(args)
+        if human and actor.startswith("human:"):
+            _guard_human(actor, action)
         st = open_store(args)
         extra = {extra_key: getattr(args, extra_key)} if extra_key and getattr(args, extra_key, None) else None
         fields = {"owner": None, "lease_expires": None} if action in ("release", "block", "requeue", "unblock") else {}
-        t = st.transition(args.id, action, actor_of(args), extra=extra, owner_only=owner_only, **fields)
+        t = st.transition(args.id, action, actor, extra=extra, owner_only=owner_only, **fields)
         print(f"{t['id']} -> {t['state']}")
     return run
 
@@ -149,8 +173,10 @@ def cmd_heartbeat(args):
 
 
 def cmd_cancel(args):
+    actor = actor_of(args)
+    prov = _guard_human(actor, "cancel") if actor.startswith("human:") else {}
     st = open_store(args)
-    st.cancel(args.id, actor_of(args), args.reason or "")
+    st.cancel(args.id, actor, args.reason or "", provenance=prov)
     print(f"{args.id} -> cancelled")
 
 
@@ -251,6 +277,8 @@ def cmd_merge(args):
     target = _target_branch(st, args)
     if t["state"] != "accepted":
         die(f"{t['id']} is '{t['state']}'; only accepted tasks merge")
+    if actor.startswith("human:"):
+        _guard_human(actor, "merge", f"Type yes to merge {t['id']} ({t['branch']}): ")
     if not st.approval_granted(t["id"], "merge"):
         aid = st.request_approval(t["id"], "merge", actor, f"merge {t['branch']} into {target}")
         print(f"approval {aid} requested. A human must run: agentsys approve {aid} --as human:<name>")
@@ -275,10 +303,35 @@ def cmd_approvals(args):
 
 def cmd_decide(grant):
     def run(args):
+        actor = actor_of(args)
+        prov = _guard_human(actor, "approval",
+                            f"Type yes to {'grant' if grant else 'deny'} approval #{args.approval_id}: ")
+        sig = _approver_sig(args.approval_id, grant, os.environ.get("AGENTSYS_APPROVER_PASS", ""))
         st = open_store(args)
-        st.decide_approval(args.approval_id, actor_of(args), grant)
+        st.decide_approval(args.approval_id, actor, grant, provenance=prov, approval_signature=sig)
         print(f"approval {args.approval_id} {'granted' if grant else 'denied'}")
     return run
+
+
+def cmd_verify_log(args):
+    st = open_store(args)
+    problems = trust.verify_event_chain(st.db, trust.load_install_key(), strict=args.strict)
+    if not problems:
+        print("event log: OK")
+        return
+    for p in problems:
+        print(p, file=sys.stderr)
+    sys.exit(1 if args.strict else 2)
+
+
+def cmd_approver_init(args):
+    import getpass
+    p1 = getpass.getpass("New approver passphrase: ")
+    p2 = getpass.getpass("Confirm: ")
+    if p1 != p2 or not p1:
+        die("passphrases did not match")
+    trust.init_approver(p1)
+    print(f"approver verifier stored at {trust.approver_path()}")
 
 
 def cmd_status(args):
@@ -541,8 +594,8 @@ def build_parser():
     b = sp("block", cmd_simple("block", extra_key="reason"), "mark blocked (needs human/dependency)")
     b.add_argument("id")
     b.add_argument("--reason")
-    sp("unblock", cmd_simple("unblock"), "return a blocked task to ready").add_argument("id")
-    sp("requeue", cmd_simple("requeue"), "return an escalated task to ready").add_argument("id")
+    sp("unblock", cmd_simple("unblock", human=True), "return a blocked task to ready").add_argument("id")
+    sp("requeue", cmd_simple("requeue", human=True), "return an escalated task to ready").add_argument("id")
     x = sp("cancel", cmd_cancel, "cancel a task")
     x.add_argument("id")
     x.add_argument("--reason")
@@ -617,6 +670,10 @@ def build_parser():
     ua.add_argument("--model")
     ua.add_argument("--note")
     sp("adapters", cmd_adapters, "detect available agent CLIs")
+    vl = sp("verify-log", cmd_verify_log, "verify tamper-evident event hash chain")
+    vl.add_argument("--strict", action="store_true", help="treat unsigned approvals as failures")
+    ap = sub.add_parser("approver", help="optional passphrase for signed human approvals").add_subparsers(dest="sub", required=True)
+    ap.add_parser("init").set_defaults(fn=cmd_approver_init)
     u = sp("ui", cmd_ui, "live dashboard on 127.0.0.1 (actions recorded as human:<you>)")
     u.add_argument("--read-only", action="store_true", help="disable budget edits, approvals and task actions")
     u.add_argument("--port", type=int, default=8791)

@@ -40,6 +40,8 @@ class IsolatedEnv:
         self.env = {k: v for k, v in os.environ.items() if not k.startswith("AGENTSYS_")}
         self.env["HOME"] = str(self.home)
         self.env["AGENTSYS_LEDGER"] = str(self.ledger)
+        self.env["AGENTSYS_TEST_SUITE"] = "1"
+        self.env["AGENTSYS_SKIP_TTY_CONFIRM"] = "1"
         self._old_home = os.environ.get("HOME")
         self._old_ledger = os.environ.get("AGENTSYS_LEDGER")
 

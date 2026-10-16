@@ -11,8 +11,9 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from .ledger import Ledger
+from .trust import CHAIN_META, GENESIS, chain_hash, event_canonical, legacy_anchor, load_install_key
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 STATES = (
     "ready", "in_progress", "blocked", "submitted", "verified",
@@ -147,6 +148,15 @@ class Store:
             self.db.execute("ALTER TABLE budgets ADD COLUMN per_run_limit INTEGER")
         if "window_hours" not in cols:
             self.db.execute("ALTER TABLE budgets ADD COLUMN window_hours REAL")
+        ecols = {r["name"] for r in self.db.execute("PRAGMA table_info(events)")}
+        if "event_hash" not in ecols:
+            self.db.execute("ALTER TABLE events ADD COLUMN prev_hash TEXT")
+            self.db.execute("ALTER TABLE events ADD COLUMN event_hash TEXT")
+            self.db.execute("ALTER TABLE events ADD COLUMN chain_status TEXT DEFAULT 'legacy'")
+            self.db.execute("UPDATE events SET chain_status='legacy' WHERE chain_status IS NULL")
+            last = self.db.execute("SELECT MAX(id) FROM events").fetchone()[0] or 0
+            anchor = legacy_anchor(load_install_key(), last)
+            self.db.execute("INSERT OR REPLACE INTO meta VALUES (?, ?)", (CHAIN_META, anchor))
 
     def close(self):
         self.db.close()
@@ -163,8 +173,19 @@ class Store:
             raise
 
     def _event(self, db, actor, task_id, kind, payload=None):
-        db.execute("INSERT INTO events (ts, actor, task_id, kind, payload) VALUES (?,?,?,?,?)",
-                   (now(), actor, task_id, kind, json.dumps(payload or {}, sort_keys=True)))
+        payload = payload or {}
+        ts = now()
+        pl = json.dumps(payload, sort_keys=True)
+        key = load_install_key()
+        row = db.execute("SELECT value FROM meta WHERE key=?", (CHAIN_META,)).fetchone()
+        prev = row["value"] if row else GENESIS
+        canonical = event_canonical(ts, actor, task_id, kind, payload)
+        eh = chain_hash(key, prev, canonical)
+        db.execute(
+            "INSERT INTO events (ts, actor, task_id, kind, payload, prev_hash, event_hash, chain_status) "
+            "VALUES (?,?,?,?,?,?,?,?)",
+            (ts, actor, task_id, kind, pl, prev, eh, "chained"))
+        db.execute("INSERT OR REPLACE INTO meta VALUES (?, ?)", (CHAIN_META, eh))
 
     def event(self, actor, task_id, kind, payload=None):
         with self.tx() as db:
@@ -294,14 +315,15 @@ class Store:
             self._move(db, t, action, actor, extra, **fields)
         return self.get(tid)
 
-    def cancel(self, tid, actor, reason=""):
+    def cancel(self, tid, actor, reason="", provenance=None):
         with self.tx() as db:
             t = self.get(tid)
             if t["state"] in TERMINAL:
                 raise TransitionError(f"task {tid} already {t['state']}")
             db.execute("UPDATE tasks SET state='cancelled', owner=NULL, lease_expires=NULL, updated_at=? WHERE id=?",
                        (now(), tid))
-            self._event(db, actor, tid, "task.cancel", {"from": t["state"], "to": "cancelled", "reason": reason})
+            self._event(db, actor, tid, "task.cancel",
+                        {"from": t["state"], "to": "cancelled", "reason": reason, "provenance": provenance or {}})
 
     # ---------- findings / checkpoints ----------
     def add_finding(self, tid, actor, body, kind="finding", evidence=None, confidence=None) -> int:
@@ -371,7 +393,7 @@ class Store:
             self._event(db, actor, tid, "approval.requested", {"approval_id": cur.lastrowid, "action": action})
             return cur.lastrowid
 
-    def decide_approval(self, aid, actor, grant: bool):
+    def decide_approval(self, aid, actor, grant: bool, provenance=None, approval_signature=""):
         if not actor.startswith("human:"):
             raise TransitionError("approvals must be decided by a 'human:' actor")
         with self.tx() as db:
@@ -381,7 +403,9 @@ class Store:
             status = "granted" if grant else "denied"
             db.execute("UPDATE approvals SET status=?, decided_by=?, decided_at=? WHERE id=?",
                        (status, actor, now(), aid))
-            self._event(db, actor, row["task_id"], f"approval.{status}", {"approval_id": aid, "action": row["action"]})
+            self._event(db, actor, row["task_id"], f"approval.{status}",
+                        {"approval_id": aid, "action": row["action"], "provenance": provenance or {},
+                         "approval_signature": approval_signature or ""})
 
     def approval_granted(self, tid, action) -> bool:
         return bool(self.db.execute("SELECT 1 FROM approvals WHERE task_id IS ? AND action=? AND status='granted'",
