@@ -8,7 +8,7 @@ import sys
 import time
 from pathlib import Path
 
-from . import __version__, budget, gitops, trust, verify
+from . import __version__, budget, gitops, hooks, mcp, trust, verify
 from .trust import HumanActionRefused
 from .adapters import ADAPTERS
 from .store import Store, TransitionError
@@ -554,6 +554,57 @@ def cmd_adapters(args):
               f"{d['binary'] or ''}")
 
 
+def cmd_check_branch(args):
+    st = open_store(args)
+    actor = actor_of(args)
+    if args.override_reason:
+        _guard_human(actor, "check-branch override")
+    ok, msg = hooks.check_branch(st, args.branch, actor, override_reason=args.override_reason)
+    print(msg)
+    if not ok:
+        sys.exit(1)
+
+
+def cmd_hooks(args):
+    root = root_of(open_store(args))
+    actor = actor_of(args)
+    sub = args.sub
+    if sub == "install":
+        for line in hooks.install(root, actor):
+            print(line)
+        return
+    if sub == "uninstall":
+        for line in hooks.uninstall(root, actor):
+            print(line)
+        return
+    st = open_store(args)
+    if sub == "merge-check":
+        branches = hooks.branches_for_merge(root)
+        if not branches:
+            return
+        for br in branches:
+            ok, msg = hooks.check_branch(st, br, actor, override_reason=None)
+            print(msg)
+            if not ok:
+                sys.exit(1)
+        return
+    if sub == "push-check":
+        for br in hooks.push_refs(sys.stdin.read()):
+            ok, msg = hooks.check_branch(st, br, actor, override_reason=None)
+            print(msg)
+            if not ok:
+                sys.exit(1)
+        return
+    die(f"unknown hooks subcommand {sub}")
+
+
+def cmd_mcp(args):
+    db = args.db or os.environ.get("AGENTSYS_DB")
+    if not db:
+        db = str(gitops.project_root() / ".agent-system" / "state.db")
+    mcp.run_server(actor_of(args), db)
+
+
 # ---------------------------------------------------------------- parser
 def build_parser():
     p = argparse.ArgumentParser(prog="agentsys", description="Durable task coordination for multiple coding agents.")
@@ -670,6 +721,15 @@ def build_parser():
     ua.add_argument("--model")
     ua.add_argument("--note")
     sp("adapters", cmd_adapters, "detect available agent CLIs")
+    cb = sp("check-branch", cmd_check_branch, "CI: exit 0 only if an agent/* branch is accepted or merged")
+    cb.add_argument("branch")
+    cb.add_argument("--override-reason", help="human-only: record why this push/merge is allowed anyway")
+    hk = sub.add_parser("hooks", help="install git hooks for agent/* branches").add_subparsers(dest="sub", required=True)
+    hk.add_parser("install").set_defaults(fn=cmd_hooks)
+    hk.add_parser("uninstall").set_defaults(fn=cmd_hooks)
+    hk.add_parser("merge-check").set_defaults(fn=cmd_hooks)
+    hk.add_parser("push-check").set_defaults(fn=cmd_hooks)
+    mc = sp("mcp", cmd_mcp, "stdio MCP server (worker tools only)")
     vl = sp("verify-log", cmd_verify_log, "verify tamper-evident event hash chain")
     vl.add_argument("--strict", action="store_true", help="treat unsigned approvals as failures")
     ap = sub.add_parser("approver", help="optional passphrase for signed human approvals").add_subparsers(dest="sub", required=True)
