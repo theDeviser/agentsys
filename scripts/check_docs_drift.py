@@ -2,6 +2,8 @@
 """Regenerate docs/cli-reference.md from `agentsys --help` and fail on drift."""
 from __future__ import annotations
 
+import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -11,11 +13,18 @@ OUT = ROOT / "docs" / "cli-reference.md"
 CLI = [sys.executable, str(ROOT / "bin" / "agentsys"), "--help"]
 
 
+def normalize(text: str) -> str:
+    """Erase argparse formatting differences between Python 3.9 and 3.10+."""
+    text = text.replace("optional arguments:", "options:")
+    return re.sub(r"\}\n\s+\.\.\.\n", "} ...\n", text)
+
+
 def capture() -> str:
-    p = subprocess.run(CLI, capture_output=True, text=True, cwd=ROOT)
+    env = {**os.environ, "COLUMNS": "100", "NO_COLOR": "1"}
+    p = subprocess.run(CLI, capture_output=True, text=True, cwd=ROOT, env=env)
     if p.returncode != 0:
         raise SystemExit(p.stderr)
-    body = p.stdout.rstrip() + "\n"
+    body = normalize(p.stdout.rstrip() + "\n")
     return (
         "# CLI reference\n\n"
         "Generated from `agentsys --help`. Do not edit by hand; run "
