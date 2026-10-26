@@ -1,24 +1,31 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Changelog — agentsys</title>
-<link rel="stylesheet" href="/agentsys/css/tokens.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/agentsys/css/site.css">
 </head>
 <body>
-<header class="top">
-  <a class="wordmark" href="/agentsys/">agentsys</a>
-  <nav><a href="/agentsys/">Home</a><a href="/agentsys/changelog.html">Changelog</a></nav>
-</header>
-<main class="prose shell">
+<nav class="nav is-scrolled">
+  <div class="nav-inner">
+    <a class="nav-brand" href="/agentsys/">agentsys</a>
+    <div class="nav-right">
+      <a class="nav-link" href="/agentsys/">Home</a>
+      <a class="nav-stars" href="https://github.com/theDeviser/agentsys">GitHub</a>
+    </div>
+  </div>
+</nav>
+<main class="container prose">
 <h1>Changelog</h1>
 
 <p>All notable changes to this project will be documented in this file.</p>
 
-<p>The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),</p>
-<p>and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).</p>
+<p>The format is based on <a href="https://keepachangelog.com/en/1.1.0/">Keep a Changelog</a>,</p>
+<p>and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 
 <h2 id="unreleased">[Unreleased]</h2>
 
@@ -31,10 +38,19 @@
 <li>GitHub open-source launch assets: docs set, <code>site/</code> landing, CI workflows, maintainer scripts.</li>
 </ul>
 
+<h3>Changed</h3>
+
+<ul>
+<li>Landing page redesigned around the dashboard screenshot, supported CLIs, and the verify → review → human merge flow.</li>
+<li>CI runs on Python 3.9 and 3.14 with a separate lint job; Dependabot groups action updates into one monthly PR.</li>
+</ul>
+
 <h3>Fixed</h3>
 
 <ul>
 <li>Sidebar agent drill-down no longer overwrites the free-text Activity filter with a harness label.</li>
+<li>CI, CodeQL, and Pages workflows pinned actions to commit SHAs that don&#x27;t exist, so every job failed at setup.</li>
+<li>Changelog page rendered Markdown links as raw text.</li>
 </ul>
 
 <h2 id="010-2026-10-16">[0.1.0] - 2026-10-16</h2>
@@ -52,10 +68,12 @@
 <li>Live dashboard (<code>agentsys ui</code>) with flow, runs, budget, and activity views.</li>
 </ul>
 
-<p>[Unreleased]: https://github.com/theDeviser/agentsys/compare/v0.1.0...HEAD</p>
-<p>[0.1.0]: https://github.com/theDeviser/agentsys/releases/tag/v0.1.0</p>
 </main>
-<footer class="site-footer" style="padding:48px var(--margin)"><div class="shell"><a href="https://github.com/theDeviser/agentsys">GitHub</a></div></footer>
-<link href="https://fonts.googleapis.com/css2?family=Stack+Sans+Headline:wght@300&family=Stack+Sans+Text:wght@400;500&display=swap" rel="stylesheet">
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-brand">MIT licensed</div>
+    <div class="footer-links"><a href="https://github.com/theDeviser/agentsys">GitHub</a><a href="/agentsys/">Home</a></div>
+  </div>
+</footer>
 </body>
 </html>

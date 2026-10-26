@@ -18,6 +18,8 @@ def md_to_fragment(text: str) -> str:
     out: list[str] = []
     in_list = False
     for line in lines:
+        if re.match(r"^\[[^\]]+\]: ", line):
+            continue
         if line.startswith("# "):
             if in_list:
                 out.append("</ul>")
@@ -59,29 +61,41 @@ def slug(h: str) -> str:
 
 
 def inline_md(s: str) -> str:
-    return re.sub(r"`([^`]+)`", r"<code>\1</code>", s)
+    s = re.sub(r"`([^`]+)`", r"<code>\1</code>", s)
+    return re.sub(r"\[([^\]]+)\]\((https?://[^)\s]+)\)", r'<a href="\2">\1</a>', s)
 
 
 def wrap(body: str) -> str:
     return f"""<!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Changelog — agentsys</title>
-<link rel="stylesheet" href="{BASE}css/tokens.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{BASE}css/site.css">
 </head>
 <body>
-<header class="top">
-  <a class="wordmark" href="{BASE}">agentsys</a>
-  <nav><a href="{BASE}">Home</a><a href="{BASE}changelog.html">Changelog</a></nav>
-</header>
-<main class="prose shell">
+<nav class="nav is-scrolled">
+  <div class="nav-inner">
+    <a class="nav-brand" href="{BASE}">agentsys</a>
+    <div class="nav-right">
+      <a class="nav-link" href="{BASE}">Home</a>
+      <a class="nav-stars" href="https://github.com/theDeviser/agentsys">GitHub</a>
+    </div>
+  </div>
+</nav>
+<main class="container prose">
 {body}
 </main>
-<footer class="site-footer" style="padding:48px var(--margin)"><div class="shell"><a href="https://github.com/theDeviser/agentsys">GitHub</a></div></footer>
-<link href="https://fonts.googleapis.com/css2?family=Stack+Sans+Headline:wght@300&family=Stack+Sans+Text:wght@400;500&display=swap" rel="stylesheet">
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-brand">MIT licensed</div>
+    <div class="footer-links"><a href="https://github.com/theDeviser/agentsys">GitHub</a><a href="{BASE}">Home</a></div>
+  </div>
+</footer>
 </body>
 </html>
 """

@@ -1,11 +1,7 @@
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/banner-dark.png">
-  <img alt="agentsys: verified handoff across AI coding tools" src="assets/banner-light.png" width="1280">
-</picture>
+<img alt="agentsys: verified handoffs between coding agents" src="assets/banner.png" width="1280">
 
 # agentsys
 
-[![ci](https://github.com/theDeviser/agentsys/actions/workflows/ci.yml/badge.svg)](https://github.com/theDeviser/agentsys/actions/workflows/ci.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](pyproject.toml)
 
@@ -13,7 +9,7 @@
 
 [Site](https://thedeviser.github.io/agentsys/) · [Changelog](https://thedeviser.github.io/agentsys/changelog.html) · [Docs](docs/index.md)
 
-![agentsys demo output](assets/demo-terminal.png)
+![The agentsys dashboard: agents, budgets, and the decisions waiting on you](assets/dashboard.png)
 
 agentsys is a zero-dependency coordination layer (Python 3.9+, SQLite, git) so Cursor, Claude Code, Codex, and humans share one task store. Work is not done until an automated gate passes and a *different* identity reviews it; merges need a human. Hash-chained audit events, git hooks, MCP worker tools, and per-account budgets are first-class—not afterthoughts.
 

@@ -2,22 +2,37 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<link rel="stylesheet" href="css/tokens.css">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/site.css">
-<link href="https://fonts.googleapis.com/css2?family=Stack+Sans+Headline:wght@300&family=Stack+Sans+Text:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  body { margin: 0; width: 1280px; height: 640px; overflow: hidden; background: var(--bg); }
-  .wrap { position: relative; height: 100%; padding: 48px 56px; }
-  .motif-giant { right: -28vh; opacity: 0.95; }
-  h1 { font-size: 88px; max-width: 9ch; margin: 0; }
-  p { font-size: 22px; color: var(--muted); max-width: 28ch; margin: 16px 0 0; }
+  body { width: 1280px; height: 640px; min-height: 0; overflow: hidden; }
+  body::after { display: none; }
+  .wrap { position: relative; height: 100%; display: grid; place-items: center; text-align: center; }
+  .brand { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 28px; font-size: 22px; font-weight: 600; letter-spacing: -.025em; }
+  .brand svg { color: var(--accent); }
+  h1 { font-size: 76px; max-width: 16ch; margin: 0 auto; }
+  p { margin: 22px auto 0; max-width: 44ch; font-size: 22px; color: var(--fg-muted); }
+  .hero-float-card { animation: none; transform: rotate(var(--rot)); }
+  .hf-claude { --x: -520px; --y: 120px; }
+  .hf-codex { --x: 520px; --y: 120px; }
+  .hf-human { --x: -440px; --y: 420px; }
+  .hf-cursor { --x: 440px; --y: 420px; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="motif-giant" aria-hidden="true"></div>
-  <h1>Handoffs that hold</h1>
-  <p>Verified coordination for Cursor, Claude Code, Codex, and humans.</p>
+  <div class="hero-grid"></div>
+  <div class="hero-float">
+    <span class="hero-float-mark hf-claude"><span class="hero-float-card"><img src="img/icons/anthropic.svg" alt="" width="24" height="24"></span></span>
+    <span class="hero-float-mark hf-codex"><span class="hero-float-card"><img src="img/icons/codex.svg" alt="" width="24" height="24"></span></span>
+    <span class="hero-float-mark hf-human"><span class="hero-float-card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span></span>
+    <span class="hero-float-mark hf-cursor"><span class="hero-float-card"><img src="img/icons/cursor.svg" alt="" width="24" height="24"></span></span>
+  </div>
+  <div>
+    <div class="brand"><svg width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="4" cy="4" r="2"/><circle cx="12" cy="4" r="2"/><circle cx="8" cy="12" r="2"/><path d="M5.5 5.4 7 10.4M10.5 5.4 9 10.4M6 4h4"/></svg>agentsys</div>
+    <h1 class="display">Verified handoffs between coding agents.</h1>
+    <p>Cursor, Claude Code, Codex, and you, on one local task store.</p>
+  </div>
 </div>
 </body>
 </html>

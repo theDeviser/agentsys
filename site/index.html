@@ -3,185 +3,188 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>agentsys — verified handoff across AI coding tools</title>
-<meta name="description" content="Local-first task coordination for Cursor, Claude Code, Codex, and humans. Gates, reviews, hash-chained audit.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath fill='%23d0106f' d='M4 4h12v12H4zm16 16h12v12H20z'/%3E%3C/svg%3E">
+<title>agentsys — verified handoffs between coding agents</title>
+<meta name="description" content="One local task store for Cursor, Claude Code, Codex, and you. Work isn't done until a check passes and a different identity reviews it. Merges need a human.">
+<meta property="og:title" content="agentsys — verified handoffs between coding agents">
+<meta property="og:description" content="Local-first coordination for Cursor, Claude Code, Codex, and humans. Gates, independent review, hash-chained audit log.">
+<meta property="og:image" content="https://thedeviser.github.io/agentsys/img/dashboard-overview.webp">
+<meta name="theme-color" content="#09090b">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%2388C0D0' stroke-width='1.4'%3E%3Ccircle cx='4' cy='4' r='2'/%3E%3Ccircle cx='12' cy='4' r='2'/%3E%3Ccircle cx='8' cy='12' r='2'/%3E%3Cpath d='M5.5 5.4 7 10.4M10.5 5.4 9 10.4M6 4h4'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Stack+Sans+Headline:wght@300&family=Stack+Sans+Text:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/tokens.css">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/site.css">
 </head>
 <body>
-<header class="top">
-  <a class="wordmark" href="./">agentsys</a>
-  <nav>
-    <a href="#pipeline">How it works</a>
-    <a href="#showcase">Dashboard</a>
-    <a href="changelog.html">Changelog</a>
-    <a href="https://github.com/theDeviser/agentsys/blob/main/docs/index.md">Docs</a>
-    <button type="button" class="btn-install" id="install-cursor">Add MCP in Cursor</button>
-  </nav>
-</header>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-mark" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="4" cy="4" r="2"/><circle cx="12" cy="4" r="2"/><circle cx="8" cy="12" r="2"/><path d="M5.5 5.4 7 10.4M10.5 5.4 9 10.4M6 4h4"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-check-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-branch" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="6" r="3"/><path d="M6 9v6M18 9a9 9 0 0 1-9 9"/></symbol>
+  <symbol id="i-chain" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-plug" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22v-5M9 8V2M15 8V2M18 8v5a6 6 0 0 1-12 0V8z"/></symbol>
+  <symbol id="i-terminal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4 17 6-5-6-5M12 19h8"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24" fill="currentColor"><path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/></symbol>
+  <symbol id="i-github" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.2.5-2.3 1.3-3.1-.2-.4-.6-1.6 0-3.2 0 0 1-.3 3.4 1.2a11.5 11.5 0 0 1 6 0c2.3-1.5 3.3-1.2 3.3-1.2.6 1.6.2 2.8 0 3.2.9.8 1.3 1.9 1.3 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1 .9 2.2v3.3c0 .3.1.7.8.6A12 12 0 0 0 12 .3"/></symbol>
+</svg>
 
-<section class="hero" id="top">
-  <div class="motif-giant" aria-hidden="true"></div>
-  <div class="hero-inner shell">
-    <h1 class="reveal">Handoffs that hold</h1>
-    <p class="lead reveal d1">One SQLite store, git worktrees, and a hash-chained log. Nothing ships on an agent’s word alone.</p>
-    <div class="hero-actions reveal d2">
-      <button type="button" class="primary" id="btn-install">Install agentsys</button>
-      <a class="secondary" href="https://github.com/theDeviser/agentsys">View source</a>
+<nav class="nav" id="nav">
+  <div class="nav-inner">
+    <a class="nav-brand" href="./" aria-label="agentsys home"><svg width="18" height="18"><use href="#i-mark"/></svg>agentsys</a>
+    <div class="nav-right">
+      <a class="nav-link hide-sm" href="https://github.com/theDeviser/agentsys/blob/main/docs/index.md">Docs</a>
+      <a class="nav-link" href="changelog.html">Changelog</a>
+      <a class="nav-stars" href="https://github.com/theDeviser/agentsys" target="_blank" rel="noopener noreferrer"><svg width="14" height="14"><use href="#i-star"/></svg><span>Star on GitHub</span></a>
     </div>
-    <div class="chain-panel reveal d2" id="chain-panel" aria-label="Audit chain replay">
-      <h2>Replay the demo chain</h2>
-      <ol class="chain-list"></ol>
-      <div class="chain-controls">
-        <button type="button" data-chain-step>Next event</button>
-        <button type="button" data-chain-tamper>Tamper hash</button>
-        <button type="button" data-chain-reset>Reset</button>
+  </div>
+</nav>
+
+<main>
+  <section class="hero">
+    <div class="hero-grid"></div>
+    <div class="hero-float" id="hero-float" aria-hidden="true">
+      <span class="hero-float-mark hf-git"><span class="hero-float-card"><svg><use href="#i-branch"/></svg></span></span>
+      <span class="hero-float-mark hf-chain"><span class="hero-float-card"><svg style="color:var(--accent)"><use href="#i-chain"/></svg></span></span>
+      <span class="hero-float-mark hf-claude"><span class="hero-float-card"><img src="img/icons/anthropic.svg" alt="" width="24" height="24"></span></span>
+      <span class="hero-float-mark hf-codex"><span class="hero-float-card"><img src="img/icons/codex.svg" alt="" width="24" height="24"></span></span>
+      <span class="hero-float-mark hf-human"><span class="hero-float-card"><svg><use href="#i-user"/></svg></span></span>
+      <span class="hero-float-mark hf-cursor"><span class="hero-float-card"><img src="img/icons/cursor.svg" alt="" width="24" height="24"></span></span>
+    </div>
+    <div class="container hero-inner">
+      <h1 class="hero-title display" data-rise><span>Verified handoffs</span><br><span>between every</span><br><span>coding agent.</span></h1>
+      <p class="hero-sub" data-rise style="--d:.3s">One local task store for Cursor, Claude Code, Codex, and you. Work isn't done until a check passes and a different identity reviews it. Merges still need a human.</p>
+      <div class="hero-actions" data-rise style="--d:.4s">
+        <a class="btn btn-primary btn-lg" href="#get-started">Get started</a>
+        <a class="hero-source-link" href="https://github.com/theDeviser/agentsys" target="_blank" rel="noopener noreferrer"><svg width="16" height="16"><use href="#i-github"/></svg><span>Read the source. Zero dependencies.</span><svg class="arrow" width="14" height="14"><use href="#i-arrow"/></svg></a>
+        <p class="hero-mobile-line">Using Cursor? <a href="#" data-install="cursor">Add the MCP server</a></p>
       </div>
-      <p class="chain-status" aria-live="polite"></p>
-    </div>
-  </div>
-</section>
-
-<section class="pipeline shell" id="pipeline">
-  <h2 class="reveal">States you can trust</h2>
-  <div class="stage-bar reveal d1" role="list" aria-label="Task state machine">
-    <span>ready</span>
-    <span>in progress</span>
-    <span>submitted</span>
-    <span class="accent">verified</span>
-    <span>accepted</span>
-    <span>merged</span>
-  </div>
-    <p class="reveal d2" style="margin-top:24px;color:var(--ink);max-width:52ch">Leases expire. A different identity reviews. Humans approve merge. Each transition is an event in the chain.</p>
-</section>
-
-<section class="showcase" id="showcase">
-  <div>
-    <h2 class="reveal">See the floor</h2>
-    <p class="reveal d1">The live dashboard shows flow, runs, budgets, and activity, with the exact CLI to run next.</p>
-    <div class="ui-fragment reveal d2" data-ui aria-label="Budget card fragment">
-      <img src="img/dashboard-activity.png" width="640" height="360" alt="" style="width:100%;margin-bottom:12px;clip-path:var(--motif-clip)">
-      <div class="row"><span>Cursor · vedansh</span><span class="tag">Dispatch refused</span></div>
-      <div class="row"><span>1.15M of 2.0M tokens</span><span>per-run cap none</span></div>
-    </div>
-    <img class="photo-atmo reveal" src="https://picsum.photos/id/721/1200/600" width="1200" height="600" alt="Twilight sky gradient" loading="lazy">
-    <p style="font-size:var(--step-small);color:var(--muted)">Photo: Jeremy Ricketts · Unsplash via picsum.photos</p>
-  </div>
-  <div class="showcase-visual reveal">
-    <img class="hero-drift" src="img/dashboard-overview.png" width="1280" height="800" alt="agentsys dashboard overview showing agents, spend, and handoffs">
-    <img src="img/dashboard-activity.png" width="1280" height="800" alt="agentsys Activity view with audit trail and filter" style="margin-top:12px">
-  </div>
-</section>
-
-<section class="shell" style="padding-bottom:80px">
-  <h2 class="reveal" style="font-family:var(--font-display);font-weight:300;font-size:var(--step-head);letter-spacing:-0.03em">Demo output</h2>
-  <pre class="reveal d1" style="background:var(--ink);color:var(--bg);padding:20px;font-size:13px;line-height:1.45;overflow:auto;clip-path:var(--motif-clip);margin:0">demo · 1/10 init store
-demo · 4/10 verify fails — missing app/greeting.txt
-demo · 7/10 agent tries to merge as human — refused
-demo · 10/10 verify-log chain OK
-demo · done in 3.3s, temp repo discarded</pre>
-</section>
-
-<section class="shell reveal" style="padding-bottom:40px">
-  <figure>
-    <img src="img/ledger-jpg.jpg" width="1920" height="1462" alt="Historical ledger books, Edinburgh City of Print" loading="lazy" style="width:100%;max-width:100%;clip-path:var(--motif-clip);aspect-ratio:3/2;object-fit:cover">
-    <figcaption style="font-size:var(--step-small);color:var(--muted);margin-top:8px">Ledgers made at Cowans, Edinburgh · Edinburgh City of Print, CC BY 2.0, Wikimedia Commons</figcaption>
-  </figure>
-</section>
-
-<section class="proof" id="proof">
-  <div class="proof-grid">
-    <div class="tile head reveal"><h2>Built local</h2></div>
-    <div class="tile f1 reveal d1"><span class="tile-label">Zero deps</span><span>Python 3.9+ stdlib, SQLite, git</span></div>
-    <div class="tile f2 reveal d1"><span class="tile-label">verify-log</span><span>Hash-chained events, tamper-evident</span></div>
-    <div class="tile f3 reveal d2"><span class="tile-label">MCP worker</span><span>claim, submit, resume, not merge</span></div>
-    <div class="tile f4 reveal d2"><span class="tile-label">Budgets</span><span>Per account, never pooled</span></div>
-    <div class="tile reveal"><span class="tile-label">Demo</span><span>Full story in under 30 seconds</span></div>
-    <div class="tile reveal d1"><span class="tile-label">Hooks</span><span>agent/* branches gated in git</span></div>
-    <div class="tile f1 reveal d2"><span class="tile-label">UI</span><span>Flow, runs, budget, activity</span></div>
-  </div>
-</section>
-
-<section class="features" id="features" aria-label="Capabilities">
-  <div class="feature-band on f1">
-    <div class="feature-inner shell">
-      <div>
-        <p class="sentence">Leases return crashed work to the queue.</p>
-        <p class="detail">Default 30 minutes; heartbeat extends the hold.</p>
+      <div data-rise style="--d:.52s">
+        <div class="hero-preview">
+          <figure class="hero-screenshot-frame">
+            <img src="img/dashboard-overview.webp" alt="The agentsys dashboard: agents, budgets, and the decisions waiting on you" width="2880" height="1512" fetchpriority="high">
+          </figure>
+        </div>
       </div>
-      <button type="button" class="toggle" aria-checked="true" aria-label="Toggle leases"></button>
     </div>
-  </div>
-  <div class="feature-band on f2">
-    <div class="feature-inner shell">
-      <div>
-        <p class="sentence">Worktrees isolate every implement task.</p>
-        <p class="detail">Scoped paths refuse overlapping claims.</p>
-      </div>
-      <button type="button" class="toggle" aria-checked="true" aria-label="Toggle worktrees"></button>
-    </div>
-  </div>
-  <div class="feature-band f3">
-    <div class="feature-inner shell">
-      <div>
-        <p class="sentence">Reviewers cannot approve their own work.</p>
-        <p class="detail">Enforced in CLI and dashboard actions.</p>
-      </div>
-      <button type="button" class="toggle" aria-checked="false" aria-label="Toggle review"></button>
-    </div>
-  </div>
-  <div class="feature-band f4">
-    <div class="feature-inner shell">
-      <div>
-        <p class="sentence">Dispatch respects per-run caps.</p>
-        <p class="detail">Refused before spend, reported after.</p>
-      </div>
-      <button type="button" class="toggle" aria-checked="false" aria-label="Toggle budgets"></button>
-    </div>
-  </div>
-</section>
+  </section>
 
-<section class="close-cta shell" id="install">
-  <p class="sentence reveal">Clone agentsys, run demo.</p>
-  <p class="hint reveal d1">export PATH=&quot;$HOME/<span id="folder-hint">agentsys</span>/bin:$PATH&quot; · AGENTSYS_DEMO=1 agentsys demo --force</p>
-</section>
+  <section id="harnesses">
+    <div class="container">
+      <div class="section-head">
+        <h2>Bring your own CLI</h2>
+        <p>agentsys doesn't resell, pool, or rotate tokens. It drives the CLIs you're already signed in to and counts usage per provider account, exactly as each one reports it.</p>
+      </div>
+      <div class="harness-grid">
+        <div class="harness"><div class="harness-mark"><img src="img/icons/cursor.svg" alt="" width="22" height="22"></div><div class="harness-meta"><div class="harness-name">Cursor</div><div class="harness-tag">cursor-agent -p</div></div></div>
+        <div class="harness"><div class="harness-mark"><img src="img/icons/anthropic.svg" alt="" width="22" height="22"></div><div class="harness-meta"><div class="harness-name">Claude Code</div><div class="harness-tag">claude -p</div></div></div>
+        <div class="harness"><div class="harness-mark"><img src="img/icons/codex.svg" alt="" width="22" height="22"></div><div class="harness-meta"><div class="harness-name">Codex CLI</div><div class="harness-tag">codex exec --json</div></div></div>
+        <div class="harness"><div class="harness-mark"><svg><use href="#i-plug"/></svg></div><div class="harness-meta"><div class="harness-name">Any MCP client</div><div class="harness-tag">agentsys mcp</div></div></div>
+        <div class="harness"><div class="harness-mark"><svg><use href="#i-user"/></svg></div><div class="harness-meta"><div class="harness-name">Humans</div><div class="harness-tag">--as human:you</div></div></div>
+        <div class="harness"><div class="harness-mark"><svg><use href="#i-terminal"/></svg></div><div class="harness-meta"><div class="harness-name">Mock</div><div class="harness-tag">free, deterministic</div></div></div>
+      </div>
+      <div class="harness-footer">
+        <span><svg width="14" height="14"><use href="#i-check"/></svg>Accounts are never pooled.</span>
+        <span><svg width="14" height="14"><use href="#i-check"/></svg>API keys are stripped from child runs.</span>
+        <span><svg width="14" height="14"><use href="#i-check"/></svg>Budget caps are checked before every dispatch.</span>
+      </div>
+    </div>
+  </section>
 
-<footer class="site-footer">
-  <div class="shell">
-    <div class="block-mark" aria-hidden="true">
-      <span>a</span><span>g</span><span>e</span><span>n</span><span>t</span><span>s</span><span>y</span><span>s</span>
+  <section id="gate">
+    <div class="container gate-inner">
+      <div class="gate-visual" role="img" aria-label="A task that passed verification and review, waiting for a human to merge it">
+        <div class="tile task-card">
+          <div class="task-head"><svg width="16" height="16"><use href="#i-check-circle"/></svg><span class="task-title">Add a dark-mode toggle</span><span class="task-status">Accepted</span></div>
+          <div class="task-meta"><span><svg width="12" height="12"><use href="#i-branch"/></svg>agent/t-5678efgh → main</span><span>codex:alice:implementer</span></div>
+          <div class="task-checks">
+            <div><code>scope · src/settings/*</code><span class="pass">pass</span></div>
+            <div><code>syntax · py_compile, bun build</code><span class="pass">pass</span></div>
+            <div><code>secrets · added lines</code><span class="pass">pass</span></div>
+            <div><code>check · npm test</code><span class="pass">pass</span></div>
+            <div><code>review · claude:bob:reviewer</code><span class="pass">approve</span></div>
+          </div>
+          <div class="task-foot"><span class="btn btn-ghost">agentsys resume</span><span class="btn btn-primary">Request merge</span></div>
+        </div>
+        <div class="trail"><div class="trail-dot"></div><div class="trail-line"></div><div class="trail-dot"></div></div>
+        <div class="merge-shell"><span class="merge-button"><svg width="14" height="14"><use href="#i-branch"/></svg>agentsys merge --cleanup<span class="merge-kbd">human:alice</span></span></div>
+      </div>
+      <div class="section-head" style="margin-bottom:0">
+        <h2>Nothing merges on an agent's word.</h2>
+        <p>Every implementation task runs in its own git worktree and branch. agentsys checks the diff, a different identity reviews it, and the merge waits for a human.</p>
+        <ul class="checklist">
+          <li><svg width="14" height="14"><use href="#i-check"/></svg>Scope, syntax, and secret scans on every diff</li>
+          <li><svg width="14" height="14"><use href="#i-check"/></svg>Your own <code>--check</code> commands run in the worktree</li>
+          <li><svg width="14" height="14"><use href="#i-check"/></svg>Reviewers can't approve work they touched</li>
+          <li><svg width="14" height="14"><use href="#i-check"/></svg>Merges need approval from a <code>human:</code> actor</li>
+        </ul>
+      </div>
     </div>
-    <div class="footer-grid">
-      <div><a href="https://github.com/theDeviser/agentsys">GitHub</a></div>
-      <div><a href="changelog.html">Changelog</a></div>
-      <div><a href="https://github.com/theDeviser/agentsys/blob/main/SECURITY.md">Security</a></div>
-      <div><a href="https://github.com/theDeviser/agentsys/issues">Issues</a></div>
+  </section>
+
+  <section id="open">
+    <div class="container">
+      <div class="section-head open-head"><div class="eyebrow">Open source</div><h2>Don't trust it. Verify it.</h2></div>
+      <div class="open-grid">
+        <div class="tile">
+          <div class="term-head"><i></i><i></i><i></i><span class="term-title">~/code</span></div>
+          <div class="term-body">
+            <div><span class="prompt">$</span>git clone https://github.com/theDeviser/agentsys.git</div>
+            <div><span class="prompt">$</span>AGENTSYS_DEMO=1 agentsys/bin/agentsys demo --force</div>
+            <div class="dim">demo · 4/10 verify fails — missing app/greeting.txt</div>
+            <div class="dim">demo · 6/10 independent reviewer approves (different harness)</div>
+            <div class="dim">demo · 7/10 agent tries to merge as human — refused</div>
+            <div class="dim">demo · 10/10 verify-log <span class="ok">chain OK</span></div>
+            <div class="dim">demo · done in 2.5s — temp repo discarded</div>
+            <div class="cursor"><span class="prompt">$</span><span class="caret"></span></div>
+          </div>
+        </div>
+        <div class="tile open-pitch">
+          <ul class="pitch-list">
+            <li><span class="pitch-mark"><svg width="12" height="12"><use href="#i-check"/></svg></span><span><strong>Zero dependencies.</strong> Python 3.9+ standard library, SQLite, and git.</span></li>
+            <li><span class="pitch-mark"><svg width="12" height="12"><use href="#i-check"/></svg></span><span><strong>Tamper-evident.</strong> Every state change is a hash-chained event that <code>verify-log</code> can replay.</span></li>
+            <li><span class="pitch-mark"><svg width="12" height="12"><use href="#i-check"/></svg></span><span><strong>Crash-safe.</strong> Claims are leases. A dead agent's task returns to the queue with a resume brief.</span></li>
+          </ul>
+          <div class="pitch-footer">
+            <div class="pitch-meta"><span>MIT licensed</span><span>·</span><span>Python 3.9+</span><span>·</span><span>Local-first</span></div>
+            <div class="pitch-actions">
+              <a class="btn btn-primary" href="https://github.com/theDeviser/agentsys/fork" target="_blank" rel="noopener noreferrer"><svg width="14" height="14"><use href="#i-github"/></svg>Fork on GitHub</a>
+              <a class="source-link" href="https://github.com/theDeviser/agentsys" target="_blank" rel="noopener noreferrer">Browse source<svg width="12" height="12"><use href="#i-arrow"/></svg></a>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="footer-bottom">
-      <span>MIT · Not affiliated with Cursor, Anthropic, or OpenAI.</span>
-      <a href="https://github.com/theDeviser/agentsys">Star on GitHub</a>
+  </section>
+
+  <section id="get-started" class="sec-cta">
+    <div class="container cta-inner">
+      <h2 class="display cta-title">Your agents deserve a second opinion.</h2>
+      <p class="cta-sub">agentsys is free, MIT licensed, and runs entirely on your machine. Clone it, run the 30-second demo, and point every agent at one task store.</p>
+      <div class="cta-actions">
+        <a class="btn btn-primary btn-lg" href="https://github.com/theDeviser/agentsys#quick-start">Read the quick start</a>
+        <a class="btn btn-ghost btn-lg" href="#" data-install="cursor">Add MCP to Cursor</a>
+      </div>
+      <div class="install-line"><code id="install-cmd">git clone https://github.com/theDeviser/agentsys.git ~/agentsys &amp;&amp; export PATH="$HOME/agentsys/bin:$PATH"</code><button type="button" class="copy-btn" data-copy="install-cmd">Copy</button></div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-brand"><svg width="18" height="18"><use href="#i-mark"/></svg><span>© 2026 agentsys contributors · MIT licensed · Not affiliated with Cursor, Anthropic, or OpenAI</span></div>
+    <div class="footer-links">
+      <a href="https://github.com/theDeviser/agentsys" target="_blank" rel="noopener noreferrer">GitHub</a>
+      <a href="https://github.com/theDeviser/agentsys/blob/main/docs/index.md">Docs</a>
+      <a href="changelog.html">Changelog</a>
+      <a href="https://github.com/theDeviser/agentsys/issues">Issues</a>
+      <a href="https://github.com/theDeviser/agentsys/blob/main/THREAT_MODEL.md">Threat model</a>
+      <a href="https://github.com/theDeviser/agentsys/blob/main/SECURITY.md">Security</a>
     </div>
   </div>
 </footer>
 
-<script type="module">
-import { INSTALL_TARGETS } from "./js/install.js";
-import { initChain } from "./js/chain.js";
-import { initMotion, initFeatureToggles } from "./js/motion.js";
-
-document.getElementById("install-cursor").addEventListener("click", () => {
-  window.location.href = INSTALL_TARGETS.cursor;
-});
-document.getElementById("btn-install").addEventListener("click", () => {
-  window.location.href = "https://github.com/theDeviser/agentsys#install";
-});
-initChain(document.getElementById("chain-panel"));
-initMotion();
-initFeatureToggles();
-</script>
+<script type="module" src="js/site.js"></script>
 </body>
 </html>

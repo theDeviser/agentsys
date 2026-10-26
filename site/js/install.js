@@ -5,14 +5,3 @@ export const INSTALL_TARGETS = {
   "claude": "https://docs.anthropic.com/en/docs/claude-code/mcp",
   "codex": "https://github.com/openai/codex"
 };
-
-export function mcpConfigJson(actor = "human:you") {
-  return JSON.stringify({
-    mcpServers: {
-      agentsys: {
-        command: "agentsys",
-        args: ["mcp", "--as", actor],
-      },
-    },
-  }, null, 2);
-}

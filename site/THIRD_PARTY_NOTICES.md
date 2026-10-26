@@ -1,6 +1,5 @@
 # Third-party notices
 
-- Dashboard provider logos: [LobeHub Icons](https://github.com/lobehub/lobe-icons) (MIT).
-- Landing typography: Stack Sans (Google Fonts).
-- Photographs: Jeremy Ricketts (Unsplash via picsum.photos); Edinburgh City of Print, CC BY 2.0 (Wikimedia Commons, ledger image).
-- Taste direction: [taste-skill](https://github.com/Leonxlnx/taste-skill) @ f624f37 (one-motif, seed 1493399760).
+- Provider logos (Cursor, Anthropic, Codex): [LobeHub Icons](https://github.com/lobehub/lobe-icons), MIT. The logos are trademarks of their owners and identify which tools agentsys can drive.
+- Typography: [DM Sans](https://fonts.google.com/specimen/DM+Sans) and [JetBrains Mono](https://fonts.google.com/specimen/JetBrains+Mono), SIL Open Font License, served by Google Fonts.
+- Layout inspired by [T3 Code](https://github.com/pingdotgg/t3code) (MIT).
