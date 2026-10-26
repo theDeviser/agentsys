@@ -14,9 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Scripted `agentsys demo` story in a temp repo (`AGENTSYS_DEMO=1` or `--force`).
 - GitHub open-source launch assets: docs set, `site/` landing, CI workflows, maintainer scripts.
 
+### Changed
+
+- Landing page redesigned around the dashboard screenshot, supported CLIs, and the verify → review → human merge flow.
+- CI runs on Python 3.9 and 3.14 with a separate lint job; Dependabot groups action updates into one monthly PR.
+
 ### Fixed
 
 - Sidebar agent drill-down no longer overwrites the free-text Activity filter with a harness label.
+- CI, CodeQL, and Pages workflows pinned actions to commit SHAs that don't exist, so every job failed at setup.
+- Changelog page rendered Markdown links as raw text.
 
 ## [0.1.0] - 2026-10-16
 

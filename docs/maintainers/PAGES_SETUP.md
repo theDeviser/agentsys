@@ -1,25 +1,16 @@
-# GitHub Pages (one-time)
+# GitHub Pages
 
-The landing page deploys from the **`pages`** workflow to:
+The landing page in `site/` deploys from the `pages` workflow to
+**https://thedeviser.github.io/agentsys/** on every push to `main`.
 
-**https://thedeviser.github.io/agentsys/**
+One-time setup: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
 
-If you see 404:
-
-1. Repo **Settings → Pages → Build and deployment → Source:** **GitHub Actions** (not “Deploy from a branch”).
-2. Run **Actions → pages → Run workflow** on `main`.
-3. After a green deploy, open the **github-pages** environment URL on the workflow run.
-
-Local preview (same paths as production):
+Preview locally with the same `/agentsys/` URL prefix as production:
 
 ```sh
-cd site && python3 -m http.server 8766
-# open http://127.0.0.1:8766/  (use a reverse proxy or browse files under /agentsys/ paths via GitHub Pages URL shape)
+./scripts/preview_site.sh        # http://127.0.0.1:8766/agentsys/
 ```
 
-For path-accurate preview from repo root:
-
-```sh
-python3 -m http.server 8766 --directory site
-# Production uses /agentsys/ prefix; index.html links assume that base.
-```
+The changelog page is generated from `CHANGELOG.md` by `scripts/build_changelog_site.py`;
+CI fails if you forget to regenerate it. README banners come from `site/banner.html` via
+`scripts/render_banner.sh`.

@@ -7,4 +7,4 @@
 - [Security](../SECURITY.md)
 - [Contributing](../CONTRIBUTING.md)
 - [Changelog](../CHANGELOG.md) · [site changelog](/agentsys/changelog.html)
-- [Maintainers](maintainers/LAUNCH_REPORT.md)
+- Maintainers: [GitHub Pages setup](maintainers/PAGES_SETUP.md) · [seed issues](maintainers/seed-issues.md)
