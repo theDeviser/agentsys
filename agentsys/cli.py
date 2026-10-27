@@ -8,7 +8,7 @@ import sys
 import time
 from pathlib import Path
 
-from . import __version__, budget, gitops, hooks, mcp, profile, routing, trust, usage_import, verify
+from . import __version__, budget, gitops, hooks, mcp, pipeline, profile, routing, trust, usage_import, verify
 from .doctor import run_doctor
 from .trust import HumanActionRefused
 from .adapters import ADAPTERS
@@ -111,6 +111,26 @@ def cmd_init(args):
     print(f"store: {st.path}")
     if not ignored:
         print("warning: add '.agent-system/' to .gitignore so the store is never committed", file=sys.stderr)
+
+
+def cmd_pipeline(args):
+    st = open_store(args)
+    root = root_of(st)
+    actor = actor_of(args)
+    if args.list:
+        for name in sorted(pipeline.list_templates(root)):
+            print(name)
+        return
+    if not args.name or not args.title:
+        die("usage: agentsys pipeline <template> \"<title>\" or agentsys pipeline --list")
+    try:
+        specs = pipeline.expand(args.name, root, title=args.title, goal=args.goal or "",
+                              paths=args.path, checks=args.check)
+        ids = pipeline.create(st, actor, specs)
+    except (pipeline.PipelineError, ValueError) as e:
+        die(str(e))
+    for tid in ids:
+        print(tid)
 
 
 def cmd_task_add(args):
@@ -763,6 +783,14 @@ def build_parser():
         return s
 
     sp("init", cmd_init, "create the store for this repository")
+    pl = sp("pipeline", cmd_pipeline, "create chained tasks from a template")
+    pl.add_argument("name", nargs="?", help="template name (e.g. research-implement)")
+    pl.add_argument("title", nargs="?", help="title for the pipeline")
+    pl.add_argument("--list", action="store_true", help="list template names")
+    pl.add_argument("--goal")
+    pl.add_argument("--path", action="append", dest="path", help="allowed path for implement steps")
+    pl.add_argument("--check", action="append", dest="check")
+
     task = sub.add_parser("task", help="create and list tasks").add_subparsers(dest="sub", required=True)
     a = task.add_parser("add", help="create a task")
     a.set_defaults(fn=cmd_task_add)
