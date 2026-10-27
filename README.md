@@ -149,3 +149,7 @@ agentsys mcp    # stdio worker MCP; see docs/integrations.md
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+## Trademarks
+
+Cursor, Claude, Codex, Grok, and other product names and logos are trademarks of their respective owners. They are used only to identify compatible tools; agentsys is an independent project. See [THIRD_PARTY_NOTICES](site/THIRD_PARTY_NOTICES.md).
