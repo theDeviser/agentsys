@@ -29,6 +29,17 @@ OpenAI’s Codex CLI MCP wiring should mirror any stdio MCP server entry. Set `A
 
 Install the [Grok Build CLI](https://docs.x.ai/docs/grok-build) (`curl -fsSL https://x.ai/cli/install.sh | bash`), run `grok login`, then use the same stdio MCP entry with `AGENTSYS_ACTOR=grok:you:work`. Headless dispatch uses `agentsys dispatch <task> --adapter grok --account you`.
 
+## Routing rules (optional)
+
+Add `routing.rules` to [`.agentsys/profile.json`](../agentsys/profile.py) (commit this file in your repo). Each rule matches a task `kind` (`research`, `implement`, or `*`) and lists `prefer` candidates in order. Routing checks that the CLI is installed, a budget exists, `check_dispatch` passes, and optional `max_pct` is not exceeded (uses the rolling window percent when set).
+
+```bash
+agentsys route t-abc12345          # print adapter, account, reason (no spend)
+agentsys dispatch t-abc12345 --adapter auto --account ignored
+```
+
+Routing never bypasses per-account caps.
+
 ## Git hooks
 
 ```bash

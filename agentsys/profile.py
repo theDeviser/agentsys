@@ -27,6 +27,14 @@ def load(root: Path) -> dict | None:
     return json.loads(p.read_text(encoding="utf-8"))
 
 
+def section(root: Path, key: str) -> dict:
+    """Return a profile subsection (empty dict if missing or not a mapping)."""
+    data = load(root)
+    if not data or not isinstance(data.get(key), dict):
+        return {}
+    return data[key]
+
+
 def save(root: Path, data: dict) -> Path:
     p = profile_path(root)
     p.parent.mkdir(parents=True, exist_ok=True)

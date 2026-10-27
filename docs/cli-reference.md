@@ -4,12 +4,12 @@ Generated from `agentsys --help`. Do not edit by hand; run `python3 scripts/chec
 
 ```text
 usage: agentsys [-h] [--version] [--as ACTOR] [--db DB]
-                {init,task,show,claim,heartbeat,release,block,unblock,requeue,cancel,finding,checkpoint,submit,verify,review,merge-check,merge,approvals,approve,deny,status,log,resume,handoff,dispatch,budget,usage,adapters,doctor,metrics,demo,check-branch,hooks,mcp,profile,verify-log,approver,ui} ...
+                {init,task,show,claim,heartbeat,release,block,unblock,requeue,cancel,finding,checkpoint,submit,verify,review,merge-check,merge,approvals,approve,deny,status,log,resume,handoff,route,dispatch,budget,usage,adapters,doctor,metrics,demo,check-branch,hooks,mcp,profile,verify-log,approver,ui} ...
 
 Durable task coordination for multiple coding agents.
 
 positional arguments:
-  {init,task,show,claim,heartbeat,release,block,unblock,requeue,cancel,finding,checkpoint,submit,verify,review,merge-check,merge,approvals,approve,deny,status,log,resume,handoff,dispatch,budget,usage,adapters,doctor,metrics,demo,check-branch,hooks,mcp,profile,verify-log,approver,ui}
+  {init,task,show,claim,heartbeat,release,block,unblock,requeue,cancel,finding,checkpoint,submit,verify,review,merge-check,merge,approvals,approve,deny,status,log,resume,handoff,route,dispatch,budget,usage,adapters,doctor,metrics,demo,check-branch,hooks,mcp,profile,verify-log,approver,ui}
     init                create the store for this repository
     task                create and list tasks
     show                full task record as JSON
@@ -34,6 +34,7 @@ positional arguments:
     log                 audit trail
     resume              self-contained brief to continue a task from its last verified checkpoint
     handoff             resume brief plus the next dispatch command for a harness
+    route               print adapter/account from profile routing rules (no dispatch)
     dispatch            run a headless agent on a task, within budget
     budget              per-account token limits
     usage               self-report interactive usage
