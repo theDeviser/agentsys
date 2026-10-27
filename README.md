@@ -7,7 +7,7 @@
 
 **Verified handoff and independent review across AI coding tools, local-first.**
 
-[Site](https://thedeviser.github.io/agentsys/) · [Changelog](https://thedeviser.github.io/agentsys/changelog.html) · [Docs](docs/index.md)
+[Site](https://thedeviser.github.io/agentsys/) · [Changelog](https://thedeviser.github.io/agentsys/changelog.html) · [Docs](docs/index.md) · [Roadmap](docs/ROADMAP.md)
 
 ![The agentsys dashboard: agents, budgets, and the decisions waiting on you](assets/dashboard.png)
 
