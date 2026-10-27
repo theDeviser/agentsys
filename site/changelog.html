@@ -30,9 +30,12 @@
 
 <h2 id="unreleased">[Unreleased]</h2>
 
+<h2 id="020-2026-10-27">[0.2.0] - 2026-10-27</h2>
+
 <h3>Added</h3>
 
 <ul>
+<li>Documentation site on GitHub Pages (<code>site/docs/</code>, <code>scripts/build_docs_site.py</code>) with sidebar, on-page TOC, and search.</li>
 <li>Adapter health: <code>agentsys adapters --check</code> (offline) and <code>--check --live</code> (read-only smoke test).</li>
 <li>Scheduler: <code>agentsys watch</code> dispatches ready tasks using profile <code>routing.rules</code> (<code>--dry-run</code>, <code>--once</code>).</li>
 <li>Task pipelines: <code>agentsys pipeline</code> and profile <code>templates</code> (built-in <code>research-implement</code>).</li>
@@ -49,6 +52,7 @@
 <h3>Changed</h3>
 
 <ul>
+<li>Dashboard hero and README screenshots refreshed with mock project data (routing, pipelines, Grok, review gates).</li>
 <li>Dashboard and site use the Claude logo for Anthropic (replacing the generic Anthropic mark).</li>
 <li>Landing page redesigned around the dashboard screenshot, supported CLIs, and the verify → review → human merge flow.</li>
 <li>CI runs on Python 3.9 and 3.14 with a separate lint job; Dependabot groups action updates into one monthly PR.</li>
