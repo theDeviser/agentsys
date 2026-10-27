@@ -29,7 +29,7 @@ Orchestration features below use optional keys in [`.agentsys/profile.json`](../
 |------|-----|--------|------|--------|
 | Deeper verification (auto-detect test/lint from repo) | Stronger gate without manual `--check` every time | Medium | False positives | planned |
 | Signed identities (bind actors to CLI login or local key) | Fixes self-declared actor trust gap | High | High | planned |
-| Adapter health checks (`adapters --check`, doctor) | Vendor JSON breaks without notice | Low | Live check spends tokens | shipped ([#13](https://github.com/theDeviser/agentsys/issues/13)) |
+| Adapter health checks (`adapters --check`, doctor) | Vendor JSON breaks without notice | Low | Live check spends tokens | shipped ([#13](https://github.com/theDeviser/agentsys/issues/13), PR [#19](https://github.com/theDeviser/agentsys/pull/19)) |
 
 ## Analytics
 
