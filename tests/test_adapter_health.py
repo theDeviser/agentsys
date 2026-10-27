@@ -7,7 +7,6 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
 from agentsys.adapter_health import check_live, check_offline  # noqa: E402
-from agentsys.adapters import ADAPTERS  # noqa: E402
 from tests.helpers import IsolatedEnv  # noqa: E402
 
 
@@ -26,12 +25,12 @@ class TestAdapterHealth(unittest.TestCase):
             self.assertEqual(rows[0]["status"], "ok")
 
     def test_live_refused_without_budget(self):
-        if not ADAPTERS["claude"].binary():
-            self.skipTest("claude CLI not installed")
+        from agentsys import budget
         with IsolatedEnv() as env:
             from agentsys.store import Store
             st = Store(env.store_path())
-            rows = check_live(st, "nobudget", adapter_name="claude")
+            with patch.object(budget, "check_dispatch", side_effect=budget.BudgetError("no budget")):
+                rows = check_live(st, "nobudget", adapter_name="mock")
             self.assertEqual(rows[0]["status"], "refused")
 
 
