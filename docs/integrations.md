@@ -40,6 +40,15 @@ agentsys dispatch t-abc12345 --adapter auto --account ignored
 
 Routing never bypasses per-account caps.
 
+## Watch / scheduler (optional)
+
+Requires `routing.rules` in `.agentsys/profile.json`. Each tick reaps expired leases, picks ready tasks, and runs `agentsys dispatch --adapter auto` (or prints decisions with `--dry-run`).
+
+```bash
+agentsys watch --once --dry-run
+agentsys watch --interval 120 --max-parallel 1
+```
+
 ## Task pipelines (optional)
 
 Define `templates` in `.agentsys/profile.json` or use the built-in `research-implement` template (research task, then implement with `--path` and `--check`).

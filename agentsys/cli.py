@@ -8,7 +8,7 @@ import sys
 import time
 from pathlib import Path
 
-from . import __version__, budget, gitops, hooks, mcp, pipeline, profile, routing, trust, usage_import, verify
+from . import __version__, budget, gitops, hooks, mcp, pipeline, profile, routing, scheduler, trust, usage_import, verify
 from .doctor import run_doctor
 from .trust import HumanActionRefused
 from .adapters import ADAPTERS
@@ -662,6 +662,28 @@ def cmd_adapters(args):
               f"{d['binary'] or ''}")
 
 
+def cmd_watch(args):
+    st = open_store(args)
+    root = root_of(st)
+    cli_cmd = [sys.executable, str(Path(__file__).resolve().parents[1] / "bin" / "agentsys")]
+    try:
+        while True:
+            try:
+                decisions = scheduler.tick(st, root, cli_cmd, max_parallel=args.max_parallel,
+                                         dry_run=args.dry_run, timeout=args.timeout)
+            except scheduler.SchedulerError as e:
+                die(str(e))
+            for d in decisions:
+                print(json.dumps(d, sort_keys=True))
+            if args.once:
+                break
+            if not args.dry_run and not decisions:
+                pass
+            time.sleep(args.interval)
+    except KeyboardInterrupt:
+        print("watch stopped", file=sys.stderr)
+
+
 def cmd_check_branch(args):
     st = open_store(args)
     actor = actor_of(args)
@@ -907,6 +929,13 @@ def build_parser():
     ui.add_argument("vendor", choices=("claude", "codex", "cursor"))
     ui.add_argument("file", type=Path)
     sp("adapters", cmd_adapters, "detect available agent CLIs")
+
+    w = sp("watch", cmd_watch, "dispatch ready tasks using routing rules")
+    w.add_argument("--once", action="store_true", help="run a single tick")
+    w.add_argument("--interval", type=int, default=60, help="seconds between ticks")
+    w.add_argument("--max-parallel", type=int, default=1, dest="max_parallel")
+    w.add_argument("--dry-run", action="store_true", help="print routing decisions without dispatching")
+    w.add_argument("--timeout", type=int, default=900, help="per-dispatch timeout passed to agentsys dispatch")
     sp("doctor", cmd_doctor, "pass/warn/fail health table")
     sp("metrics", cmd_metrics, "local task/run counters")
     dm = sp("demo", cmd_demo, "scripted onboarding story (<30s)")
