@@ -62,7 +62,20 @@ def slug(h: str) -> str:
 
 def inline_md(s: str) -> str:
     s = re.sub(r"`([^`]+)`", r"<code>\1</code>", s)
-    return re.sub(r"\[([^\]]+)\]\((https?://[^)\s]+)\)", r'<a href="\2">\1</a>', s)
+
+    def link(m: re.Match[str]) -> str:
+        label, url = m.group(1), m.group(2)
+        if url.startswith("http://") or url.startswith("https://"):
+            return f'<a href="{url}">{label}</a>'
+        if url.endswith(".md"):
+            name = url.rsplit("/", 1)[-1][:-3].lower()
+            if name == "roadmap":
+                return f'<a href="{BASE}docs/roadmap.html">{label}</a>'
+            if name == "index":
+                return f'<a href="{BASE}docs/index.html">{label}</a>'
+        return f'<a href="{url}">{label}</a>'
+
+    return re.sub(r"\[([^\]]+)\]\(([^)]+)\)", link, s)
 
 
 def wrap(body: str) -> str:
@@ -83,6 +96,7 @@ def wrap(body: str) -> str:
     <a class="nav-brand" href="{BASE}">agentsys</a>
     <div class="nav-right">
       <a class="nav-link" href="{BASE}">Home</a>
+      <a class="nav-link" href="{BASE}docs/index.html">Docs</a>
       <a class="nav-stars" href="https://github.com/theDeviser/agentsys">GitHub</a>
     </div>
   </div>

@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Integrations — agentsys docs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/agentsys/css/site.css">
+<link rel="stylesheet" href="/agentsys/css/docs.css">
+</head>
+<body class="docs-layout">
+<nav class="nav is-scrolled">
+  <div class="nav-inner">
+    <a class="nav-brand" href="/agentsys/">agentsys</a>
+    <div class="nav-right">
+      <a class="nav-link" href="/agentsys/">Home</a>
+      <a class="nav-link" href="index.html" aria-current="page">Docs</a>
+      <a class="nav-link" href="/agentsys/changelog.html">Changelog</a>
+      <a class="nav-stars" href="https://github.com/theDeviser/agentsys">GitHub</a>
+    </div>
+  </div>
+</nav>
+<div class="docs-search-wrap">
+  <input type="search" id="docs-search" class="docs-search" placeholder="Search docs…" autocomplete="off" aria-label="Search documentation">
+  <div id="docs-search-results" class="docs-search-results" hidden></div>
+</div>
+<div class="docs-shell">
+<nav class="docs-sidebar" aria-label="Documentation">
+<div class="docs-nav-group"><div class="docs-nav-label">Getting started</div><ul>
+<li><a href="index.html">Overview</a></li>
+</ul></div>
+<div class="docs-nav-group"><div class="docs-nav-label">Guides</div><ul>
+<li><a href="architecture.html">Architecture</a></li>
+<li><a href="integrations.html" aria-current="page">Integrations</a></li>
+</ul></div>
+<div class="docs-nav-group"><div class="docs-nav-label">Reference</div><ul>
+<li><a href="cli-reference.html">CLI reference</a></li>
+<li><a href="roadmap.html">Roadmap</a></li>
+</ul></div>
+<div class="docs-nav-group"><div class="docs-nav-label">Project</div><ul>
+<li><a href="security.html">Security</a></li>
+<li><a href="threat-model.html">Threat model</a></li>
+<li><a href="contributing.html">Contributing</a></li>
+</ul></div>
+</nav>
+<main class="docs-main prose docs-prose">
+<article>
+<h1>Integrating agentsys with coding agents</h1>
+<p>Identity is always <code>harness:account:role</code> (or <code>agent:harness:role</code> for automation). The MCP server and CLI read identity from startup args / <code>AGENTSYS_ACTOR</code>, not from tool payloads.</p>
+<h2 id="mcp-stdio">MCP (stdio)</h2>
+<p>Run from the git project root (or pass <code>--db</code>):</p>
+<div class="code-block"><button type="button" class="code-copy" aria-label="Copy code">Copy</button><pre><code class="language-bash">export AGENTSYS_ACTOR=cursor:alice:implementer
+agentsys mcp</code></pre></div>
+<p>Exposed tools: <code>claim</code>, <code>heartbeat</code>, <code>finding</code>, <code>checkpoint</code>, <code>submit</code>, <code>resume</code>, <code>status</code>, <code>list_tasks</code>. There is no approve, merge, or human review tool.</p>
+<h3 id="cursor-unverified">Cursor — <em>unverified</em></h3>
+<p>Cursor’s MCP client configuration format changes between releases. Point a custom MCP server at the command above if your build supports arbitrary stdio servers. We have not re-verified the exact <code>mcp.json</code> schema against current Cursor docs in this repo.</p>
+<h3 id="claude-code-unverified">Claude Code — <em>unverified</em></h3>
+<p>Claude Code documents project-level MCP servers under user settings; use the same <code>agentsys mcp</code> command with <code>AGENTSYS_ACTOR=claude:you:work</code>. Confirm paths in Anthropic’s latest Claude Code documentation before relying on this in production.</p>
+<h3 id="codex-cli-unverified">Codex CLI — <em>unverified</em></h3>
+<p>OpenAI’s Codex CLI MCP wiring should mirror any stdio MCP server entry. Set <code>AGENTSYS_ACTOR=codex:you:work</code>. Treat config file names and flags as vendor-controlled.</p>
+<h3 id="grok-build-unverified">Grok Build — <em>unverified</em></h3>
+<p>Install the <a href="https://docs.x.ai/docs/grok-build">Grok Build CLI</a> (<code>curl -fsSL https://x.ai/cli/install.sh | bash</code>), run <code>grok login</code>, then use the same stdio MCP entry with <code>AGENTSYS_ACTOR=grok:you:work</code>. Headless dispatch uses <code>agentsys dispatch &lt;task&gt; --adapter grok --account you</code>.</p>
+<h2 id="routing-rules-optional">Routing rules (optional)</h2>
+<p>Add <code>routing.rules</code> to <a href="https://github.com/theDeviser/agentsys/blob/main/agentsys/profile.py"><code>.agentsys/profile.json</code></a> (commit this file in your repo). Each rule matches a task <code>kind</code> (<code>research</code>, <code>implement</code>, or <code>*</code>) and lists <code>prefer</code> candidates in order. Routing checks that the CLI is installed, a budget exists, <code>check_dispatch</code> passes, and optional <code>max_pct</code> is not exceeded (uses the rolling window percent when set).</p>
+<div class="code-block"><button type="button" class="code-copy" aria-label="Copy code">Copy</button><pre><code class="language-bash">agentsys route t-abc12345          # print adapter, account, reason (no spend)
+agentsys dispatch t-abc12345 --adapter auto --account ignored</code></pre></div>
+<p>Routing never bypasses per-account caps.</p>
+<h2 id="adapter-health">Adapter health</h2>
+<div class="code-block"><button type="button" class="code-copy" aria-label="Copy code">Copy</button><pre><code class="language-bash">agentsys adapters --check              # offline: --version per CLI
+agentsys adapters --check --live --account you --adapter mock   # tiny read-only prompt (spends quota)</code></pre></div>
+<p><code>agentsys doctor</code> includes an <code>adapter-versions</code> row from the offline check.</p>
+<h2 id="watch-scheduler-optional">Watch / scheduler (optional)</h2>
+<p>Requires <code>routing.rules</code> in <code>.agentsys/profile.json</code>. Each tick reaps expired leases, picks ready tasks, and runs <code>agentsys dispatch --adapter auto</code> (or prints decisions with <code>--dry-run</code>).</p>
+<div class="code-block"><button type="button" class="code-copy" aria-label="Copy code">Copy</button><pre><code class="language-bash">agentsys watch --once --dry-run
+agentsys watch --interval 120 --max-parallel 1</code></pre></div>
+<h2 id="task-pipelines-optional">Task pipelines (optional)</h2>
+<p>Define <code>templates</code> in <code>.agentsys/profile.json</code> or use the built-in <code>research-implement</code> template (research task, then implement with <code>--path</code> and <code>--check</code>).</p>
+<div class="code-block"><button type="button" class="code-copy" aria-label="Copy code">Copy</button><pre><code class="language-bash">agentsys pipeline --list
+agentsys pipeline research-implement &quot;Add dark mode&quot; --path &quot;src/*&quot; --check &quot;npm test&quot;</code></pre></div>
+<h2 id="review-assignment-optional">Review assignment (optional)</h2>
+<p>Set <code>review.pairs</code> in <code>.agentsys/profile.json</code> to map author harness → reviewer harness (<code>&quot;*&quot;</code> is the fallback). When <code>require_different_harness</code> is true (default), reviewers must use a different harness than anyone who claimed or submitted the task.</p>
+<div class="code-block"><button type="button" class="code-copy" aria-label="Copy code">Copy</button><pre><code class="language-bash">agentsys reviewer t-abc12345</code></pre></div>
+<h2 id="git-hooks">Git hooks</h2>
+<div class="code-block"><button type="button" class="code-copy" aria-label="Copy code">Copy</button><pre><code class="language-bash">export AGENTSYS_ACTOR=human:you
+agentsys hooks install</code></pre></div>
+<p>Hooks call <code>agentsys hooks merge-check</code> and <code>agentsys hooks push-check</code>. Fast-forward merges do not run <code>pre-merge-commit</code>; prefer <code>git config merge.ff false</code> or rely on <code>pre-push</code> plus CI <code>check-branch</code>.</p>
+<p>Human override (recorded in the event log):</p>
+<div class="code-block"><button type="button" class="code-copy" aria-label="Copy code">Copy</button><pre><code class="language-bash">agentsys check-branch agent/t-abc12345 --override-reason &quot;hotfix&quot; --as human:you</code></pre></div>
+<h2 id="environment">Environment</h2>
+<table><thead><tr><th>Variable</th><th>Purpose</th></tr></thead><tbody><tr><td><code>AGENTSYS_ACTOR</code></td><td>Default identity</td></tr><tr><td><code>AGENTSYS_DB</code></td><td>Store path</td></tr><tr><td><code>AGENTSYS_LEDGER</code></td><td>Shared usage ledger</td></tr><tr><td><code>AGENTSYS_CLI</code></td><td>Path used by git hooks (tests set this)</td></tr><tr><td><code>AGENTSYS_DISPATCHED</code></td><td>Set in adapter children; blocks forged human actions</td></tr></tbody></table>
+<div class="docs-pager"><a class="docs-pager-prev" href="architecture.html">← Architecture</a><a class="docs-pager-next" href="cli-reference.html">CLI reference →</a></div>
+<p class="docs-edit"><a href="https://github.com/theDeviser/agentsys/blob/main/docs/integrations.md">Edit this page on GitHub</a></p>
+</article>
+</main>
+<nav class="docs-toc" aria-label="On this page"><div class="docs-toc-label">On this page</div><ul><li><a href="#mcp-stdio">MCP (stdio)</a></li><li><a href="#cursor-unverified">Cursor — *unverified*</a></li><li><a href="#claude-code-unverified">Claude Code — *unverified*</a></li><li><a href="#codex-cli-unverified">Codex CLI — *unverified*</a></li><li><a href="#grok-build-unverified">Grok Build — *unverified*</a></li><li><a href="#routing-rules-optional">Routing rules (optional)</a></li><li><a href="#adapter-health">Adapter health</a></li><li><a href="#watch-scheduler-optional">Watch / scheduler (optional)</a></li><li><a href="#task-pipelines-optional">Task pipelines (optional)</a></li><li><a href="#review-assignment-optional">Review assignment (optional)</a></li><li><a href="#git-hooks">Git hooks</a></li><li><a href="#environment">Environment</a></li></ul></nav>
+</div>
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-brand">MIT licensed</div>
+    <div class="footer-links"><a href="https://github.com/theDeviser/agentsys">GitHub</a><a href="/agentsys/">Home</a></div>
+  </div>
+</footer>
+<script src="/agentsys/js/docs.js"></script>
+</body>
+</html>

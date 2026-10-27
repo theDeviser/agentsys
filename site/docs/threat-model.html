@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Threat model — agentsys docs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/agentsys/css/site.css">
+<link rel="stylesheet" href="/agentsys/css/docs.css">
+</head>
+<body class="docs-layout">
+<nav class="nav is-scrolled">
+  <div class="nav-inner">
+    <a class="nav-brand" href="/agentsys/">agentsys</a>
+    <div class="nav-right">
+      <a class="nav-link" href="/agentsys/">Home</a>
+      <a class="nav-link" href="index.html" aria-current="page">Docs</a>
+      <a class="nav-link" href="/agentsys/changelog.html">Changelog</a>
+      <a class="nav-stars" href="https://github.com/theDeviser/agentsys">GitHub</a>
+    </div>
+  </div>
+</nav>
+<div class="docs-search-wrap">
+  <input type="search" id="docs-search" class="docs-search" placeholder="Search docs…" autocomplete="off" aria-label="Search documentation">
+  <div id="docs-search-results" class="docs-search-results" hidden></div>
+</div>
+<div class="docs-shell">
+<nav class="docs-sidebar" aria-label="Documentation">
+<div class="docs-nav-group"><div class="docs-nav-label">Getting started</div><ul>
+<li><a href="index.html">Overview</a></li>
+</ul></div>
+<div class="docs-nav-group"><div class="docs-nav-label">Guides</div><ul>
+<li><a href="architecture.html">Architecture</a></li>
+<li><a href="integrations.html">Integrations</a></li>
+</ul></div>
+<div class="docs-nav-group"><div class="docs-nav-label">Reference</div><ul>
+<li><a href="cli-reference.html">CLI reference</a></li>
+<li><a href="roadmap.html">Roadmap</a></li>
+</ul></div>
+<div class="docs-nav-group"><div class="docs-nav-label">Project</div><ul>
+<li><a href="security.html">Security</a></li>
+<li><a href="threat-model.html" aria-current="page">Threat model</a></li>
+<li><a href="contributing.html">Contributing</a></li>
+</ul></div>
+</nav>
+<main class="docs-main prose docs-prose">
+<article>
+<h1>agentsys threat model (local-first demo / team tool)</h1>
+<p>agentsys coordinates AI coding agents on one machine (or one trusted host). It is <strong>not</strong> a multi-tenant SaaS. Assumptions and limits below are intentional.</p>
+<h2 id="assets">Assets</h2>
+<ul>
+<li><strong>Task store</strong> (<code>.agent-system/state.db</code>): tasks, findings, approvals, append-only events.</li>
+<li><strong>Install key</strong> (<code>~/.agentsys/install.key</code>): HMAC key for the event hash chain (mode <code>0600</code>).</li>
+<li><strong>Optional approver verifier</strong> (<code>~/.agentsys/approver.json</code>): scrypt hash of a passphrase; signatures on human approvals when enabled.</li>
+<li><strong>Shared usage ledger</strong> (<code>AGENTSYS_LEDGER</code> or default path): token budgets across projects.</li>
+<li><strong>Git worktrees and branches</strong>: real code changes until merge.</li>
+</ul>
+<h2 id="trust-boundaries">Trust boundaries</h2>
+<table><thead><tr><th>Actor</th><th>Trust level</th></tr></thead><tbody><tr><td>Human at keyboard + TTY, or human on dashboard with session token</td><td>Can approve, deny, merge (with confirmations), cancel, requeue</td></tr><tr><td>Agent CLI / MCP (<code>harness:account:role</code> or <code>agent:harness:role</code>)</td><td>Can claim, work, submit, review <strong>if</strong> a different identity than authors</td></tr><tr><td>Dispatched child process (<code>AGENTSYS_DISPATCHED=1</code>)</td><td><strong>Cannot</strong> perform <code>human:*</code> actions</td></tr><tr><td>Anyone with shell + write access to the store file</td><td>Can bypass all software rules (see below)</td></tr></tbody></table>
+<h2 id="controls-software">Controls (software)</h2>
+<ol>
+<li><strong>Hash-chained events</strong> — Tampering with <code>prev_hash</code> / <code>event_hash</code> or meta <code>chain_prev_hash</code> is detected by <code>agentsys verify-log</code>. Pre-migration rows are <code>legacy</code> and anchored.</li>
+<li><strong>Human provenance</strong> — Human actions record TTY/dashboard/dispatch state; refused when dispatched or without TTY/token (except dashboard token path).</li>
+<li><strong>TTY confirmation</strong> — Sensitive CLI actions read <strong>yes</strong> from <code>/dev/tty</code>, not piped stdin.</li>
+<li><strong>Reviewer independence</strong> — Store rejects review by task authors; dashboard/API flag <code>same_account_review</code> when reviewer shares an account segment with a worker.</li>
+<li><strong>Scope / verify gate</strong> — Implement tasks must pass automated checks before review (extended in later phases with project test profiles).</li>
+<li><strong>Git hooks</strong> (when installed) — <code>pre-merge-commit</code> / <code>pre-push</code> + <code>check-branch</code> reduce accidental merges; <strong>fast-forward merges do not run <code>pre-merge-commit</code></strong> — use <code>merge.ff=false</code> or rely on <code>pre-push</code> + CI.</li>
+</ol>
+<h2 id="out-of-scope-honest-limits">Out of scope / honest limits</h2>
+<ul>
+<li><strong>Same-user shell is root.</strong> A user who can run <code>sqlite3</code> on the store or export <code>AGENTSYS_ACTOR=human:…</code> with a real TTY can impersonate a human. The chain detects <strong>after-the-fact</strong> edits, not motivated same-user fraud.</li>
+<li><strong>Self-declared identities</strong> — <code>AGENTSYS_ACTOR</code> is asserted, not cryptographically bound to vendor accounts (adapters report usage where possible).</li>
+<li><strong>Network</strong> — Dashboard binds to localhost by default; Host/Origin/token reduce rebinding and drive-by POSTs, not a stolen laptop session.</li>
+<li><strong>Secrets in findings</strong> — Scanners reduce accidental commits; agents can still paste secrets into the DB if the human does not run verify-log and review.</li>
+</ul>
+<h2 id="mcp-and-agents">MCP and agents</h2>
+<p>The stdlib MCP server exposes <strong>worker</strong> tools only (claim, heartbeat, finding, checkpoint, submit, resume, status). No approve, merge, or review-over-HTTP.</p>
+<h2 id="reporting-incidents">Reporting incidents</h2>
+<ol>
+<li>Run <code>agentsys verify-log --strict</code> on a copy of the store.</li>
+<li>Inspect events for unexpected <code>human:*</code> actors and <code>same_account_review</code> in the dashboard snapshot.</li>
+<li>Rotate approver passphrase (<code>agentsys approver init</code>) if passphrase may be compromised.</li>
+</ol>
+<div class="docs-pager"><a class="docs-pager-prev" href="security.html">← Security</a><a class="docs-pager-next" href="contributing.html">Contributing →</a></div>
+<p class="docs-edit"><a href="https://github.com/theDeviser/agentsys/blob/main/THREAT_MODEL.md">Edit this page on GitHub</a></p>
+</article>
+</main>
+<nav class="docs-toc" aria-label="On this page"><div class="docs-toc-label">On this page</div><ul><li><a href="#assets">Assets</a></li><li><a href="#trust-boundaries">Trust boundaries</a></li><li><a href="#controls-software">Controls (software)</a></li><li><a href="#out-of-scope-honest-limits">Out of scope / honest limits</a></li><li><a href="#mcp-and-agents">MCP and agents</a></li><li><a href="#reporting-incidents">Reporting incidents</a></li></ul></nav>
+</div>
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-brand">MIT licensed</div>
+    <div class="footer-links"><a href="https://github.com/theDeviser/agentsys">GitHub</a><a href="/agentsys/">Home</a></div>
+  </div>
+</footer>
+<script src="/agentsys/js/docs.js"></script>
+</body>
+</html>

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Architecture — agentsys docs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/agentsys/css/site.css">
+<link rel="stylesheet" href="/agentsys/css/docs.css">
+</head>
+<body class="docs-layout">
+<nav class="nav is-scrolled">
+  <div class="nav-inner">
+    <a class="nav-brand" href="/agentsys/">agentsys</a>
+    <div class="nav-right">
+      <a class="nav-link" href="/agentsys/">Home</a>
+      <a class="nav-link" href="index.html" aria-current="page">Docs</a>
+      <a class="nav-link" href="/agentsys/changelog.html">Changelog</a>
+      <a class="nav-stars" href="https://github.com/theDeviser/agentsys">GitHub</a>
+    </div>
+  </div>
+</nav>
+<div class="docs-search-wrap">
+  <input type="search" id="docs-search" class="docs-search" placeholder="Search docs…" autocomplete="off" aria-label="Search documentation">
+  <div id="docs-search-results" class="docs-search-results" hidden></div>
+</div>
+<div class="docs-shell">
+<nav class="docs-sidebar" aria-label="Documentation">
+<div class="docs-nav-group"><div class="docs-nav-label">Getting started</div><ul>
+<li><a href="index.html">Overview</a></li>
+</ul></div>
+<div class="docs-nav-group"><div class="docs-nav-label">Guides</div><ul>
+<li><a href="architecture.html" aria-current="page">Architecture</a></li>
+<li><a href="integrations.html">Integrations</a></li>
+</ul></div>
+<div class="docs-nav-group"><div class="docs-nav-label">Reference</div><ul>
+<li><a href="cli-reference.html">CLI reference</a></li>
+<li><a href="roadmap.html">Roadmap</a></li>
+</ul></div>
+<div class="docs-nav-group"><div class="docs-nav-label">Project</div><ul>
+<li><a href="security.html">Security</a></li>
+<li><a href="threat-model.html">Threat model</a></li>
+<li><a href="contributing.html">Contributing</a></li>
+</ul></div>
+</nav>
+<main class="docs-main prose docs-prose">
+<article>
+<h1>agentsys architecture (current)</h1>
+<p>One-page map of how the tool fits together as of the hardening baseline.</p>
+<h2 id="components">Components</h2>
+<table><thead><tr><th>Piece</th><th>Role</th></tr></thead><tbody><tr><td><code>agentsys/store.py</code></td><td>SQLite schema, task state machine, append-only <code>events</code>, findings, checkpoints, runs (per project), approvals</td></tr><tr><td><code>agentsys/ledger.py</code></td><td>User-level <code>~/.agentsys/ledger.db</code>: budgets and run totals across all projects</td></tr><tr><td><code>agentsys/cli.py</code></td><td>All commands; dispatches to adapters; human-facing messages and <code>resume</code> brief</td></tr><tr><td><code>agentsys/verify.py</code></td><td>Verification gate: scope, syntax, secrets regex, task <code>--check</code> commands</td></tr><tr><td><code>agentsys/budget.py</code></td><td>Pre-run cap checks, estimates, alerts</td></tr><tr><td><code>agentsys/adapters.py</code></td><td>Headless runs: mock, cursor-agent, claude, codex, grok</td></tr><tr><td><code>agentsys/gitops.py</code></td><td>Worktrees, merge-check, merge</td></tr><tr><td><code>agentsys/ui.py</code> + <code>ui.html</code></td><td>Local dashboard; read state; optional writes via POST <code>/api/action</code></td></tr></tbody></table>
+<h2 id="state-machine">State machine</h2>
+<p>Tasks move through guarded transitions (<code>TRANSITIONS</code> in <code>store.py</code>). Every transition runs in a transaction and appends an event. Terminal states: <code>merged</code>, <code>cancelled</code>. Dependencies must be <code>accepted</code> or <code>merged</code> before claim.</p>
+<p>Typical implement path: <code>ready</code> → <code>in_progress</code> (claim + lease) → <code>submitted</code> → <code>verified</code> (gate) → <code>accepted</code> (review) → <code>merged</code> (human approval + git merge).</p>
+<h2 id="stores">Stores</h2>
+<ul>
+<li><strong>Project store:</strong> <code>&lt;repo&gt;/.agent-system/state.db</code> (gitignored). Tasks, events, findings, checkpoints, runs for that repo.</li>
+<li><strong>Ledger:</strong> <code>AGENTSYS_LEDGER</code> or <code>~/.agentsys/ledger.db</code>. Budget rows and imported runs; shared caps apply no matter which project dispatches.</li>
+</ul>
+<p>On <code>Store</code> open, project runs/budgets are imported into the ledger idempotently.</p>
+<h2 id="identity-model-today">Identity model (today)</h2>
+<p>Actors are self-declared strings: <code>harness:account:role</code> (e.g. <code>codex:alice:work</code>, <code>human:vedansh</code>). The store enforces:</p>
+<ul>
+<li>Review: <code>authors(tid)</code> (claim/checkpoint/submit) cannot review.</li>
+<li>Approvals/merge: only <code>human:</code> actors in <code>decide_approval</code>.</li>
+</ul>
+<p>There is no cryptographic binding to a vendor login yet (Phase 1 adds tamper-evident logs and human-action refusals).</p>
+<h2 id="adapters">Adapters</h2>
+<p><code>agentsys dispatch</code> builds a prompt (including <code>AGENT_RULES</code>), checks budget, claims or continues work, runs the vendor CLI in the task worktree, records usage, writes output as a finding, checkpoints/submits or releases on failure.</p>
+<h2 id="verification-gate">Verification gate</h2>
+<p><code>agentsys verify</code> runs <code>verify.run_pipeline</code>: allowed paths, syntax helpers, secret patterns (type only in reports), custom checks, and for research tasks at least one evidenced finding.</p>
+<h2 id="dashboard">Dashboard</h2>
+<p>Stdlib <code>ThreadingHTTPServer</code> on 127.0.0.1. Polls <code>/api/state</code> and <code>/api/task</code>. Writable mode requires per-page session token + matching Host/Origin.</p>
+<div class="docs-pager"><a class="docs-pager-prev" href="index.html">← Overview</a><a class="docs-pager-next" href="integrations.html">Integrations →</a></div>
+<p class="docs-edit"><a href="https://github.com/theDeviser/agentsys/blob/main/docs/ARCHITECTURE.md">Edit this page on GitHub</a></p>
+</article>
+</main>
+<nav class="docs-toc" aria-label="On this page"><div class="docs-toc-label">On this page</div><ul><li><a href="#components">Components</a></li><li><a href="#state-machine">State machine</a></li><li><a href="#stores">Stores</a></li><li><a href="#identity-model-today">Identity model (today)</a></li><li><a href="#adapters">Adapters</a></li><li><a href="#verification-gate">Verification gate</a></li><li><a href="#dashboard">Dashboard</a></li></ul></nav>
+</div>
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-brand">MIT licensed</div>
+    <div class="footer-links"><a href="https://github.com/theDeviser/agentsys">GitHub</a><a href="/agentsys/">Home</a></div>
+  </div>
+</footer>
+<script src="/agentsys/js/docs.js"></script>
+</body>
+</html>

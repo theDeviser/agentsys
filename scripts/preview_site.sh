@@ -7,7 +7,8 @@ rm -rf "$PREVIEW"
 mkdir -p "$PREVIEW/agentsys"
 rsync -a "$ROOT/site/" "$PREVIEW/agentsys/"
 python3 scripts/build_changelog_site.py
-cp "$ROOT/site/changelog.html" "$PREVIEW/agentsys/"
+python3 scripts/build_docs_site.py
+rsync -a "$ROOT/site/" "$PREVIEW/agentsys/"
 PORT="${1:-8766}"
 echo "Preview: http://127.0.0.1:${PORT}/agentsys/"
 cd "$PREVIEW" && exec python3 -m http.server "$PORT"
