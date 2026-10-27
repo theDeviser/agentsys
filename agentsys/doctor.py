@@ -5,6 +5,7 @@ import shutil
 import sys
 
 from . import gitops, trust
+from .adapter_health import check_offline
 from .adapters import ADAPTERS
 
 
@@ -23,6 +24,9 @@ def run_doctor(st) -> list[dict]:
     for a in ADAPTERS.values():
         d = a.detect()
         rows.append(_row(f"adapter:{a.name}", "pass" if d["available"] else "warn", d["binary"] or "missing"))
+    failed = [r for r in check_offline() if r["status"] != "ok"]
+    rows.append(_row("adapter-versions", "pass" if not failed else "warn",
+                     "OK" if not failed else ", ".join(f"{r['adapter']}:{r['status']}" for r in failed)))
     rows.append(_row("ledger", "pass" if st.ledger.path.exists() else "warn", str(st.ledger.path)))
     return rows
 
