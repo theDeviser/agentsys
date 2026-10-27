@@ -11,7 +11,7 @@
 
 ![The agentsys dashboard: agents, budgets, and the decisions waiting on you](assets/dashboard.png)
 
-agentsys is a zero-dependency coordination layer (Python 3.9+, SQLite, git) so Cursor, Claude Code, Codex, and humans share one task store. Work is not done until an automated gate passes and a *different* identity reviews it; merges need a human. Hash-chained audit events, git hooks, MCP worker tools, and per-account budgets are first-class—not afterthoughts.
+agentsys is a zero-dependency coordination layer (Python 3.9+, SQLite, git) so Cursor, Claude Code, Codex, Grok Build, and humans share one task store. Work is not done until an automated gate passes and a *different* identity reviews it; merges need a human. Hash-chained audit events, git hooks, MCP worker tools, and per-account budgets are first-class—not afterthoughts.
 
 - **Zero dependencies.** Python ≥ 3.9 standard library, SQLite, and git.
 - **Survives crashes.** Claims are time-limited leases. If an agent dies, its task returns to the queue, and the next agent gets a brief that includes the partial work left behind.
@@ -64,6 +64,7 @@ agentsys --as human:alice approve 1 && agentsys --as human:alice merge t-5678efg
 agentsys adapters                                   # what's installed (also finds CLIs bundled in IDE extensions)
 agentsys budget set anthropic bob --limit 1000000   # required before any real dispatch
 agentsys dispatch t-5678efgh --adapter claude --account bob --max-usd 2
+agentsys dispatch t-5678efgh --adapter grok --account bob          # Grok Build CLI (xAI)
 agentsys dispatch t-5678efgh --adapter mock         # deterministic, free, labelled [MOCK]
 agentsys budget show
 ```
@@ -126,6 +127,7 @@ ready → in_progress → submitted → verified → accepted → merged
 | `cursor` | `cursor-agent -p --output-format json` | provider-reported `usage` | `--sandbox enabled`; `--mode ask` for research |
 | `claude` | `claude -p --output-format json` | provider-reported `usage` + `total_cost_usd` | `--allowedTools` limited to Read/Glob/Grep(/Edit/Write) |
 | `codex` | `codex exec --json` | provider-reported `turn.completed.usage` | `--sandbox read-only` / `workspace-write` |
+| `grok` | `grok --prompt-file … --output-format json` | provider-reported `usage` + `total_cost_usd` when complete | `--sandbox read-only` / `workspace` |
 
 Adapters strip provider API-key variables from the child environment, so a run never silently switches from a subscription login to pay-per-token API billing.
 

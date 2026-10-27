@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Grok Build headless adapter (`--adapter grok`, provider `xai`).
 - Activity dashboard filter keeps focus while the list updates (`#activity-list` split from toolbar).
 - `CHANGELOG.md`, `site/changelog.html` (generated), and `scripts/build_changelog_site.py`.
 - Scripted `agentsys demo` story in a temp repo (`AGENTSYS_DEMO=1` or `--force`).
@@ -16,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Dashboard and site use the Claude logo for Anthropic (replacing the generic Anthropic mark).
 - Landing page redesigned around the dashboard screenshot, supported CLIs, and the verify → review → human merge flow.
 - CI runs on Python 3.9 and 3.14 with a separate lint job; Dependabot groups action updates into one monthly PR.
 

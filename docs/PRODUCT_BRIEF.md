@@ -92,7 +92,7 @@ passing tests, MIT licence, 7 commits, one user (the author). Not yet published.
 | Verification gate | Changed files must be inside the allowed paths; syntax checks (JS/JSX via `bun`, Python, JSON); a secret-pattern scan that reports the type, never the value; the task's own check commands; and, for research tasks, at least one finding with evidence. |
 | Review | The reviewer must not be any identity that claimed, checkpointed or submitted the task. |
 | Approvals | Merges need a `human:` identity's approval; `merge` refuses on a dirty main tree or conflicts. |
-| Headless dispatch | `agentsys dispatch <task> --adapter cursor\|claude\|codex\|mock --account <name>` runs the vendor's own CLI in the worktree and sandbox. It strips API-key environment variables, records provider-reported token usage, posts the output as a finding, and submits or releases the task. |
+| Headless dispatch | `agentsys dispatch <task> --adapter cursor\|claude\|codex\|grok\|mock --account <name>` runs the vendor's own CLI in the worktree and sandbox. It strips API-key environment variables, records provider-reported token usage, posts the output as a finding, and submits or releases the task. |
 | Budgets | Per (provider, account): total cap (or 0 = track only), per-run cap, rolling window (e.g. 5 h), and a review reserve (default 20 %; only review runs may use it). The check happens **before** a run, with an estimate equal to the average of the last 5 real runs. Alerts fire at 50/80/95 %. Usage is shared across all projects on the machine (`~/.agentsys/ledger.db`), so a cap holds whichever repo dispatches. Accounts are never pooled. |
 | Dashboard | `agentsys ui`. A Cursor-styled local web app (dark and light) with views for:<br>- **Overview:** a plain-language headline, a "needs you" list with one-click actions, and agent cards showing live runs.<br>- **Flow:** each task's chain of agents and what each did, flagging reviews done by the same account that wrote the work.<br>- **Runs:** a timeline of every run with tokens, cost and failures.<br>- **Budget & spend:** each account's limits, edited in a dialog with a live preview of whether the next run would be allowed.<br>- **Activity:** the audit trail as sentences.<br>- **Task pages:** a progress stepper, a "Next" step with the exact command, notes as a thread, and the audit trail.<br>Also: a ⌘K palette and deep links. Actions you can take there: edit limits, approve or deny, requeue, unblock, cancel. They're recorded as `human:<you>` and protected by a per-session token, Host and Origin checks, and input validation; `--read-only` disables them. |
 
@@ -113,7 +113,7 @@ passing tests, MIT licence, 7 commits, one user (the author). Not yet published.
  Codex  ──┤   (any shell)         └── ~/.agentsys/ledger.db            (budgets + runs for every account, all projects)
  Human  ──┘        │
                    ├── git worktree per implement task  (<repo>.worktrees/<id>, branch agent/<id>)
-                   ├── adapters: run vendor CLIs headless (cursor-agent -p, claude -p, codex exec)
+                   ├── adapters: run vendor CLIs headless (cursor-agent -p, claude -p, codex exec, grok --prompt-file)
                    └── agentsys ui: local dashboard (127.0.0.1)
 ```
 
