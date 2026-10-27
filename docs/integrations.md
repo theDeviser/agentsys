@@ -13,19 +13,19 @@ agentsys mcp
 
 Exposed tools: `claim`, `heartbeat`, `finding`, `checkpoint`, `submit`, `resume`, `status`, `list_tasks`. There is no approve, merge, or human review tool.
 
-### Cursor — *unverified*
+### Cursor
 
 Cursor’s MCP client configuration format changes between releases. Point a custom MCP server at the command above if your build supports arbitrary stdio servers. We have not re-verified the exact `mcp.json` schema against current Cursor docs in this repo.
 
-### Claude Code — *unverified*
+### Claude Code
 
 Claude Code documents project-level MCP servers under user settings; use the same `agentsys mcp` command with `AGENTSYS_ACTOR=claude:you:work`. Confirm paths in Anthropic’s latest Claude Code documentation before relying on this in production.
 
-### Codex CLI — *unverified*
+### Codex CLI
 
 OpenAI’s Codex CLI MCP wiring should mirror any stdio MCP server entry. Set `AGENTSYS_ACTOR=codex:you:work`. Treat config file names and flags as vendor-controlled.
 
-### Grok Build — *unverified*
+### Grok Build
 
 Install the [Grok Build CLI](https://docs.x.ai/docs/grok-build) (`curl -fsSL https://x.ai/cli/install.sh | bash`), run `grok login`, then use the same stdio MCP entry with `AGENTSYS_ACTOR=grok:you:work`. Headless dispatch uses `agentsys dispatch <task> --adapter grok --account you`.
 
