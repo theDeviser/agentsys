@@ -236,6 +236,15 @@ class TestBudget(GitRepo):
         budget.check_dispatch(st, codex, "v", est=50_000_000)  # track-only never refuses
         self.assertTrue(budget.post_run_alerts(st, "anthropic", "h", 0, run_tokens=900))
 
+    def test_xai_budget_advisory(self):
+        st = self.store()
+        grok = ADAPTERS["grok"]
+        st.set_budget("xai", "acct", 100_000, "human:v", reserve_pct=20)
+        budget.check_dispatch(st, grok, "acct", est=70_000)
+        with self.assertRaises(budget.BudgetError):
+            budget.check_dispatch(st, grok, "acct", est=90_000)
+        budget.check_dispatch(st, grok, "acct", role="review", est=90_000)
+
     def test_unreported_usage_counts_at_estimate_and_accounts_are_separate(self):
         st = self.store()
         st.record_run(ts_start=0, adapter="codex", provider="openai", account="a", usage_source="unknown",
@@ -253,6 +262,45 @@ class TestAdapterParsing(unittest.TestCase):
         self.assertEqual(_error_message(raw), "model not supported")
         self.assertEqual(_error_message("plain"), "plain")
         self.assertEqual(_quiet("x ERROR rmcp::transport::worker: noise\nreal problem"), "real problem")
+
+    def test_grok_parse_success_and_error(self):
+        from agentsys.adapters import _parse_grok
+        ok = json.dumps({
+            "text": "summary", "stopReason": "end_turn",
+            "usage": {"input_tokens": 100, "cache_creation_input_tokens": 10, "output_tokens": 50,
+                      "cache_read_input_tokens": 200},
+            "modelUsage": {"grok-4.6": {"inputTokens": 100, "outputTokens": 50}},
+            "total_cost_usd": 0.01,
+        })
+        p = _parse_grok(ok)
+        self.assertEqual(p["text"], "summary")
+        self.assertEqual(p["tokens_in"], 110)
+        self.assertEqual(p["tokens_out"], 50)
+        self.assertEqual(p["tokens_cached"], 200)
+        self.assertEqual(p["cost_usd"], 0.01)
+        self.assertEqual(p["model"], "grok-4.6")
+        no_cost = json.dumps({"text": "x", "usage": {"input_tokens": 1, "output_tokens": 2}, "usage_is_incomplete": True})
+        self.assertIsNone(_parse_grok(no_cost)["cost_usd"])
+        err = json.dumps({"type": "error", "message": "no session"})
+        self.assertTrue(_parse_grok(err)["error"])
+
+    def test_grok_cmd_sandbox_flags(self):
+        from unittest.mock import patch
+        from agentsys.adapters import GrokAdapter
+        a = GrokAdapter()
+        out = json.dumps({"text": "ok", "usage": {"input_tokens": 1, "output_tokens": 2}})
+        with patch.object(GrokAdapter, "binary", return_value="/bin/grok"), patch.object(GrokAdapter, "_exec") as ex:
+            ex.return_value = (0, out, "", 1.0)
+            a.run("prompt", Path("/tmp/wt"), write=False, timeout=60)
+            ro = ex.call_args[0][0]
+            self.assertIn("read-only", ro)
+            self.assertIn("--tools", ro)
+            self.assertIn("read_file,grep,list_dir", ro)
+            a.run("prompt", Path("/tmp/wt"), write=True, timeout=60)
+            wr = ex.call_args[0][0]
+            self.assertIn("workspace", wr)
+            self.assertIn("bypassPermissions", wr)
+            self.assertIn("run_terminal_cmd", wr[wr.index("--disallowed-tools") + 1])
 
 
 class TestEndToEnd(GitRepo):

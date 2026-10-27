@@ -7,6 +7,7 @@ import os
 import re
 import shutil
 import subprocess
+import tempfile
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -219,6 +220,83 @@ class CodexAdapter(Adapter):
             usage_source="provider-reported" if usage else "unknown", raw_usage=usage)
 
 
+class GrokAdapter(Adapter):
+    name = "grok"
+    provider = "xai"
+    default_estimate = 60_000
+
+    def binary(self):
+        return _find("grok", ["~/.grok/bin/grok", "~/.local/bin/grok"])
+
+    def run(self, prompt, workdir, *, write, timeout, model=None, max_usd=None, task=None) -> RunResult:
+        b = self.binary()
+        fd, pf = tempfile.mkstemp(prefix="agentsys-grok-", suffix=".txt")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(prompt)
+            cmd = [b, "--prompt-file", pf, "--output-format", "json", "--no-auto-update", "--cwd", str(workdir)]
+            if write:
+                cmd += ["--sandbox", "workspace", "--permission-mode", "bypassPermissions",
+                        "--disallowed-tools", "run_terminal_cmd,web_search,web_fetch,Agent"]
+            else:
+                cmd += ["--sandbox", "read-only", "--tools", "read_file,grep,list_dir"]
+            if model:
+                cmd += ["-m", model]
+            code, out, err, _ = self._exec(cmd, workdir, timeout)
+        finally:
+            try:
+                os.unlink(pf)
+            except OSError:
+                pass
+        parsed = _parse_grok(out)
+        if parsed is None:
+            return RunResult(text=_quiet(err or out).strip()[-800:] or "unparseable output",
+                             exit_code=code or 1, note="unparseable output")
+        if parsed.get("error"):
+            return RunResult(text=parsed["text"], exit_code=code or 1, note=parsed.get("note", ""))
+        exit_code = code if parsed.get("ok", True) else (code or 1)
+        return RunResult(
+            text=parsed["text"], exit_code=exit_code,
+            tokens_in=parsed.get("tokens_in"), tokens_out=parsed.get("tokens_out"),
+            tokens_cached=parsed.get("tokens_cached"), cost_usd=parsed.get("cost_usd"),
+            model=parsed.get("model"), usage_source=parsed.get("usage_source", "unknown"),
+            raw_usage=parsed.get("raw_usage") or {})
+
+
+def _parse_grok(stdout: str) -> dict | None:
+    """Parse Grok Build headless --output-format json (last JSON object on stdout)."""
+    line = ""
+    for line in reversed(stdout.splitlines()):
+        line = line.strip()
+        if line.startswith("{"):
+            break
+    else:
+        return None
+    try:
+        res = json.loads(line)
+    except json.JSONDecodeError:
+        return None
+    if res.get("type") == "error":
+        return {"error": True, "text": res.get("message") or "grok error", "ok": False}
+    u = res.get("usage") or {}
+    models = list((res.get("modelUsage") or {}).keys())
+    cost = res.get("total_cost_usd")
+    if res.get("cost_is_partial") or res.get("usage_is_incomplete"):
+        cost = None
+    usage_source = "provider-reported" if u else "unknown"
+    return {
+        "text": (res.get("text") or "").strip(),
+        "ok": True,
+        "tokens_in": (_n(u.get("input_tokens")) + _n(u.get("cache_creation_input_tokens"))) if u else None,
+        "tokens_out": u.get("output_tokens") if u else None,
+        "tokens_cached": u.get("cache_read_input_tokens") if u else None,
+        "cost_usd": cost if isinstance(cost, (int, float)) else None,
+        "model": ",".join(models) or None,
+        "usage_source": usage_source,
+        "raw_usage": u,
+    }
+
+
 def _n(v):
     return v if isinstance(v, int) else 0
 
@@ -236,4 +314,4 @@ def _quiet(stderr):
     return "\n".join(l for l in (stderr or "").splitlines() if "rmcp::" not in l).strip()
 
 
-ADAPTERS = {a.name: a for a in (MockAdapter(), CursorAdapter(), ClaudeAdapter(), CodexAdapter())}
+ADAPTERS = {a.name: a for a in (MockAdapter(), CursorAdapter(), ClaudeAdapter(), CodexAdapter(), GrokAdapter())}
