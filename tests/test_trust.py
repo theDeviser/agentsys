@@ -4,6 +4,7 @@ from __future__ import annotations
 import multiprocessing
 import os
 import sqlite3
+import time
 import unittest.mock
 import subprocess
 import sys
@@ -27,9 +28,18 @@ def _chain_writer(n, db, home, ledger):
     os.environ["AGENTSYS_HOME"] = home
     os.environ["AGENTSYS_LEDGER"] = ledger
     st = Store(db)
-    for i in range(5):
-        st.event(f"agent:cursor:w{n}", None, "test.tick", {"n": n, "i": i})
-    st.close()
+    try:
+        for i in range(5):
+            for attempt in range(50):
+                try:
+                    st.event(f"agent:cursor:w{n}", None, "test.tick", {"n": n, "i": i})
+                    break
+                except sqlite3.OperationalError as e:
+                    if "locked" not in str(e).lower() or attempt == 49:
+                        raise
+                    time.sleep(0.05 * (attempt + 1))
+    finally:
+        st.close()
 
 
 class TestHumanProvenance(unittest.TestCase):
