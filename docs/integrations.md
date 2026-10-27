@@ -40,6 +40,14 @@ agentsys dispatch t-abc12345 --adapter auto --account ignored
 
 Routing never bypasses per-account caps.
 
+## Review assignment (optional)
+
+Set `review.pairs` in `.agentsys/profile.json` to map author harness → reviewer harness (`"*"` is the fallback). When `require_different_harness` is true (default), reviewers must use a different harness than anyone who claimed or submitted the task.
+
+```bash
+agentsys reviewer t-abc12345
+```
+
 ## Git hooks
 
 ```bash

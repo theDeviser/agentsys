@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Review assignment: `review.pairs` in profile, `agentsys reviewer`, and harness independence in `review`.
 - Profile routing rules: `agentsys route` and `dispatch --adapter auto` choose adapter/account from `.agentsys/profile.json`.
 - Product [roadmap](docs/ROADMAP.md) documenting planned capabilities beyond connectors.
 - Grok Build headless adapter (`--adapter grok`, provider `xai`).
