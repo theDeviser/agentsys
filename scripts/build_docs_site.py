@@ -12,6 +12,10 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT_DIR = ROOT / "site" / "docs"
 BASE = "/agentsys/"
 REPO = "https://github.com/theDeviser/agentsys/blob/main/"
+SVG_DEFS = """<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-mark" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="4" cy="4" r="2"/><circle cx="12" cy="4" r="2"/><circle cx="8" cy="12" r="2"/><path d="M5.5 5.4 7 10.4M10.5 5.4 9 10.4M6 4h4"/></symbol>
+</svg>"""
+NAV_BRAND = f'<a class="nav-brand" href="{BASE}"><svg width="18" height="18"><use href="#i-mark"/></svg>agentsys</a>'
 
 # slug, source path relative to ROOT, nav title, nav group
 PAGES: list[tuple[str, str, str, str]] = [
@@ -237,7 +241,15 @@ def nav_html(current: str) -> str:
     groups: dict[str, list[tuple[str, str]]] = {}
     for slug, _src, title, group in PAGES:
         groups.setdefault(group, []).append((slug, title))
-    parts = ['<nav class="docs-sidebar" aria-label="Documentation">']
+    parts = [
+        '<nav class="docs-sidebar" aria-label="Documentation">',
+        '<div class="docs-search-box">',
+        '<input type="search" id="docs-search" class="docs-search" placeholder="Search docs…" '
+        'autocomplete="off" aria-label="Search documentation">',
+        '<kbd class="docs-search-kbd" aria-hidden="true">/</kbd>',
+        '<div id="docs-search-results" class="docs-search-results" hidden></div>',
+        '</div>',
+    ]
     for group, items in groups.items():
         parts.append(f'<div class="docs-nav-group"><div class="docs-nav-label">{html.escape(group)}</div><ul>')
         for slug, title in items:
@@ -303,9 +315,10 @@ def wrap_page(
 <link rel="stylesheet" href="{BASE}css/docs.css">
 </head>
 <body class="docs-layout">
+{SVG_DEFS}
 <nav class="nav is-scrolled">
   <div class="nav-inner">
-    <a class="nav-brand" href="{BASE}">agentsys</a>
+    {NAV_BRAND}
     <div class="nav-right">
       <a class="nav-link" href="{BASE}">Home</a>
       <a class="nav-link" href="index.html" aria-current="page">Docs</a>
@@ -314,10 +327,6 @@ def wrap_page(
     </div>
   </div>
 </nav>
-<div class="docs-search-wrap">
-  <input type="search" id="docs-search" class="docs-search" placeholder="Search docs…" autocomplete="off" aria-label="Search documentation">
-  <div id="docs-search-results" class="docs-search-results" hidden></div>
-</div>
 <div class="docs-shell">
 {nav_html(slug)}
 <main class="docs-main prose docs-prose">

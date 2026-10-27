@@ -11,9 +11,12 @@
 <link rel="stylesheet" href="/agentsys/css/docs.css">
 </head>
 <body class="docs-layout">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-mark" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="4" cy="4" r="2"/><circle cx="12" cy="4" r="2"/><circle cx="8" cy="12" r="2"/><path d="M5.5 5.4 7 10.4M10.5 5.4 9 10.4M6 4h4"/></symbol>
+</svg>
 <nav class="nav is-scrolled">
   <div class="nav-inner">
-    <a class="nav-brand" href="/agentsys/">agentsys</a>
+    <a class="nav-brand" href="/agentsys/"><svg width="18" height="18"><use href="#i-mark"/></svg>agentsys</a>
     <div class="nav-right">
       <a class="nav-link" href="/agentsys/">Home</a>
       <a class="nav-link" href="index.html" aria-current="page">Docs</a>
@@ -22,12 +25,13 @@
     </div>
   </div>
 </nav>
-<div class="docs-search-wrap">
-  <input type="search" id="docs-search" class="docs-search" placeholder="Search docs…" autocomplete="off" aria-label="Search documentation">
-  <div id="docs-search-results" class="docs-search-results" hidden></div>
-</div>
 <div class="docs-shell">
 <nav class="docs-sidebar" aria-label="Documentation">
+<div class="docs-search-box">
+<input type="search" id="docs-search" class="docs-search" placeholder="Search docs…" autocomplete="off" aria-label="Search documentation">
+<kbd class="docs-search-kbd" aria-hidden="true">/</kbd>
+<div id="docs-search-results" class="docs-search-results" hidden></div>
+</div>
 <div class="docs-nav-group"><div class="docs-nav-label">Getting started</div><ul>
 <li><a href="index.html" aria-current="page">Overview</a></li>
 </ul></div>
