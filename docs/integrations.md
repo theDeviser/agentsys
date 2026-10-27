@@ -40,6 +40,15 @@ agentsys dispatch t-abc12345 --adapter auto --account ignored
 
 Routing never bypasses per-account caps.
 
+## Task pipelines (optional)
+
+Define `templates` in `.agentsys/profile.json` or use the built-in `research-implement` template (research task, then implement with `--path` and `--check`).
+
+```bash
+agentsys pipeline --list
+agentsys pipeline research-implement "Add dark mode" --path "src/*" --check "npm test"
+```
+
 ## Review assignment (optional)
 
 Set `review.pairs` in `.agentsys/profile.json` to map author harness → reviewer harness (`"*"` is the fallback). When `require_different_harness` is true (default), reviewers must use a different harness than anyone who claimed or submitted the task.

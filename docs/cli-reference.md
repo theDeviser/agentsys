@@ -4,13 +4,14 @@ Generated from `agentsys --help`. Do not edit by hand; run `python3 scripts/chec
 
 ```text
 usage: agentsys [-h] [--version] [--as ACTOR] [--db DB]
-                {init,task,show,claim,heartbeat,release,block,unblock,requeue,cancel,finding,checkpoint,submit,verify,review,merge-check,merge,approvals,approve,deny,status,log,resume,handoff,reviewer,route,dispatch,budget,usage,adapters,doctor,metrics,demo,check-branch,hooks,mcp,profile,verify-log,approver,ui} ...
+                {init,pipeline,task,show,claim,heartbeat,release,block,unblock,requeue,cancel,finding,checkpoint,submit,verify,review,merge-check,merge,approvals,approve,deny,status,log,resume,handoff,reviewer,route,dispatch,budget,usage,adapters,doctor,metrics,demo,check-branch,hooks,mcp,profile,verify-log,approver,ui} ...
 
 Durable task coordination for multiple coding agents.
 
 positional arguments:
-  {init,task,show,claim,heartbeat,release,block,unblock,requeue,cancel,finding,checkpoint,submit,verify,review,merge-check,merge,approvals,approve,deny,status,log,resume,handoff,reviewer,route,dispatch,budget,usage,adapters,doctor,metrics,demo,check-branch,hooks,mcp,profile,verify-log,approver,ui}
+  {init,pipeline,task,show,claim,heartbeat,release,block,unblock,requeue,cancel,finding,checkpoint,submit,verify,review,merge-check,merge,approvals,approve,deny,status,log,resume,handoff,reviewer,route,dispatch,budget,usage,adapters,doctor,metrics,demo,check-branch,hooks,mcp,profile,verify-log,approver,ui}
     init                create the store for this repository
+    pipeline            create chained tasks from a template
     task                create and list tasks
     show                full task record as JSON
     claim               claim a task (creates a worktree for implement tasks)
