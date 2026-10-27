@@ -6,6 +6,7 @@ dist/
 .agent-system/
 .DS_Store
 .qa/
+screenshots/
 *.db
 *.db-*
 .agent-system/
