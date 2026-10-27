@@ -37,5 +37,7 @@ jobs:
         run: python scripts/check_install_links.py
       - name: Changelog site is up to date
         run: python scripts/build_changelog_site.py && git diff --exit-code site/changelog.html
+      - name: Docs site is up to date
+        run: python scripts/build_docs_site.py && git diff --exit-code site/docs
       - name: Build sdist and wheel
         run: pip install build && python -m build

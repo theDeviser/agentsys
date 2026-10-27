@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Security — agentsys docs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/agentsys/css/site.css">
+<link rel="stylesheet" href="/agentsys/css/docs.css">
+</head>
+<body class="docs-layout">
+<nav class="nav is-scrolled">
+  <div class="nav-inner">
+    <a class="nav-brand" href="/agentsys/">agentsys</a>
+    <div class="nav-right">
+      <a class="nav-link" href="/agentsys/">Home</a>
+      <a class="nav-link" href="index.html" aria-current="page">Docs</a>
+      <a class="nav-link" href="/agentsys/changelog.html">Changelog</a>
+      <a class="nav-stars" href="https://github.com/theDeviser/agentsys">GitHub</a>
+    </div>
+  </div>
+</nav>
+<div class="docs-search-wrap">
+  <input type="search" id="docs-search" class="docs-search" placeholder="Search docs…" autocomplete="off" aria-label="Search documentation">
+  <div id="docs-search-results" class="docs-search-results" hidden></div>
+</div>
+<div class="docs-shell">
+<nav class="docs-sidebar" aria-label="Documentation">
+<div class="docs-nav-group"><div class="docs-nav-label">Getting started</div><ul>
+<li><a href="index.html">Overview</a></li>
+</ul></div>
+<div class="docs-nav-group"><div class="docs-nav-label">Guides</div><ul>
+<li><a href="architecture.html">Architecture</a></li>
+<li><a href="integrations.html">Integrations</a></li>
+</ul></div>
+<div class="docs-nav-group"><div class="docs-nav-label">Reference</div><ul>
+<li><a href="cli-reference.html">CLI reference</a></li>
+<li><a href="roadmap.html">Roadmap</a></li>
+</ul></div>
+<div class="docs-nav-group"><div class="docs-nav-label">Project</div><ul>
+<li><a href="security.html" aria-current="page">Security</a></li>
+<li><a href="threat-model.html">Threat model</a></li>
+<li><a href="contributing.html">Contributing</a></li>
+</ul></div>
+</nav>
+<main class="docs-main prose docs-prose">
+<article>
+<h1>Security model</h1>
+<h2 id="scope">Scope</h2>
+<p>agentsys coordinates agents that run <strong>as the same local user</strong>. It provides guardrails against agent mistakes. It is <strong>not</strong> an isolation boundary against a malicious local process.</p>
+<table><thead><tr><th>Property</th><th>Status</th></tr></thead><tbody><tr><td>Actor identity</td><td>Self-declared (<code>--as</code>). Not authenticated.</td></tr><tr><td>Store</td><td>Local SQLite file, mode <code>0600</code>; any process running as your user can write to it.</td></tr><tr><td>Worktrees</td><td>Separate files, not a sandbox. Agents can still reach paths outside them.</td></tr><tr><td>Real sandboxing</td><td>Delegated to each harness: <code>codex --sandbox</code>, <code>cursor-agent --sandbox enabled</code>, Claude Code <code>--allowedTools</code> / <code>--permission-mode</code>.</td></tr></tbody></table>
+<h2 id="defaults">Defaults</h2>
+<ul>
+<li>Child processes get no provider API-key variables (see <code>adapters.API_KEY_VARS</code>).</li>
+<li><code>codex</code> runs <code>read-only</code> for research and <code>workspace-write</code> for implementation, with network off (the Codex default).</li>
+<li><code>cursor-agent</code> uses <code>--force</code> only for implementation tasks, and always with <code>--sandbox enabled</code>.</li>
+<li>Prompts go to <code>claude</code> and <code>codex</code> over stdin. <code>cursor-agent</code> only accepts the prompt as an argument, so it is visible in <code>ps</code> to the same user; never put secrets in task text.</li>
+<li>The verification secret scan reports matches by type and never prints the matched value.</li>
+<li>Merges need a granted approval from a <code>human:</code> actor and refuse to run on a dirty main tree.</li>
+</ul>
+<h2 id="reporting">Reporting</h2>
+<p>Open a private security advisory on the repository, or contact the maintainer directly. Please don&#x27;t file public issues for vulnerabilities.</p>
+<div class="docs-pager"><a class="docs-pager-prev" href="roadmap.html">← Roadmap</a><a class="docs-pager-next" href="threat-model.html">Threat model →</a></div>
+<p class="docs-edit"><a href="https://github.com/theDeviser/agentsys/blob/main/SECURITY.md">Edit this page on GitHub</a></p>
+</article>
+</main>
+<nav class="docs-toc" aria-label="On this page"><div class="docs-toc-label">On this page</div><ul><li><a href="#scope">Scope</a></li><li><a href="#defaults">Defaults</a></li><li><a href="#reporting">Reporting</a></li></ul></nav>
+</div>
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-brand">MIT licensed</div>
+    <div class="footer-links"><a href="https://github.com/theDeviser/agentsys">GitHub</a><a href="/agentsys/">Home</a></div>
+  </div>
+</footer>
+<script src="/agentsys/js/docs.js"></script>
+</body>
+</html>
