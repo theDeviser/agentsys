@@ -7,8 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-27
+
 ### Added
 
+- Documentation site on GitHub Pages (`site/docs/`, `scripts/build_docs_site.py`) with sidebar, on-page TOC, and search.
 - Adapter health: `agentsys adapters --check` (offline) and `--check --live` (read-only smoke test).
 - Scheduler: `agentsys watch` dispatches ready tasks using profile `routing.rules` (`--dry-run`, `--once`).
 - Task pipelines: `agentsys pipeline` and profile `templates` (built-in `research-implement`).
@@ -23,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Dashboard hero and README screenshots refreshed with mock project data (routing, pipelines, Grok, review gates).
 - Dashboard and site use the Claude logo for Anthropic (replacing the generic Anthropic mark).
 - Landing page redesigned around the dashboard screenshot, supported CLIs, and the verify → review → human merge flow.
 - CI runs on Python 3.9 and 3.14 with a separate lint job; Dependabot groups action updates into one monthly PR.
@@ -46,5 +50,6 @@ First public hardening release (coordination CLI, dashboard, trust model).
 - `agentsys doctor`, `agentsys metrics`, adversarial and e2e tests (51+ unit tests).
 - Live dashboard (`agentsys ui`) with flow, runs, budget, and activity views.
 
-[Unreleased]: https://github.com/theDeviser/agentsys/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/theDeviser/agentsys/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/theDeviser/agentsys/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/theDeviser/agentsys/releases/tag/v0.1.0
