@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Product [roadmap](docs/ROADMAP.md) documenting planned capabilities beyond connectors.
 - Grok Build headless adapter (`--adapter grok`, provider `xai`).
 - Activity dashboard filter keeps focus while the list updates (`#activity-list` split from toolbar).
 - `CHANGELOG.md`, `site/changelog.html` (generated), and `scripts/build_changelog_site.py`.

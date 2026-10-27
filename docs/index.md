@@ -1,5 +1,6 @@
 # agentsys documentation
 
+- [Roadmap](ROADMAP.md)
 - [Architecture](ARCHITECTURE.md)
 - [Integrations (MCP, hooks, CI)](integrations.md)
 - [CLI reference](cli-reference.md) (generated)
