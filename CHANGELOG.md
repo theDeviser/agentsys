@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Adapter health: `agentsys adapters --check` (offline) and `--check --live` (read-only smoke test).
 - Scheduler: `agentsys watch` dispatches ready tasks using profile `routing.rules` (`--dry-run`, `--once`).
 - Task pipelines: `agentsys pipeline` and profile `templates` (built-in `research-implement`).
 - Review assignment: `review.pairs` in profile, `agentsys reviewer`, and harness independence in `review`.

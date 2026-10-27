@@ -9,6 +9,7 @@ import time
 from pathlib import Path
 
 from . import __version__, budget, gitops, hooks, mcp, pipeline, profile, routing, scheduler, trust, usage_import, verify
+from .adapter_health import check_live, check_offline
 from .doctor import run_doctor
 from .trust import HumanActionRefused
 from .adapters import ADAPTERS
@@ -656,6 +657,18 @@ def cmd_ui(args):
 
 
 def cmd_adapters(args):
+    if args.check:
+        if args.live:
+            if not args.account:
+                die("--account is required for --check --live")
+            rows = check_live(open_store(args), args.account, adapter_name=args.adapter)
+        else:
+            rows = check_offline()
+        for r in rows:
+            print(f"{r['adapter']:<7} {r['status']:<8} {r['detail']}")
+        if any(r["status"] in ("fail", "missing", "refused") for r in rows):
+            sys.exit(1)
+        return
     for a in ADAPTERS.values():
         d = a.detect()
         print(f"{d['adapter']:<7} provider={d['provider']:<10} {'available' if d['available'] else 'MISSING':<10} "
@@ -928,7 +941,11 @@ def build_parser():
     ui.set_defaults(fn=cmd_usage_import)
     ui.add_argument("vendor", choices=("claude", "codex", "cursor"))
     ui.add_argument("file", type=Path)
-    sp("adapters", cmd_adapters, "detect available agent CLIs")
+    ad = sp("adapters", cmd_adapters, "detect available agent CLIs")
+    ad.add_argument("--check", action="store_true", help="run health checks (offline or --live)")
+    ad.add_argument("--live", action="store_true", help="with --check: run a tiny read-only prompt (spends quota)")
+    ad.add_argument("--account", help="account for live checks")
+    ad.add_argument("--adapter", choices=sorted(ADAPTERS), help="limit live check to one adapter")
 
     w = sp("watch", cmd_watch, "dispatch ready tasks using routing rules")
     w.add_argument("--once", action="store_true", help="run a single tick")

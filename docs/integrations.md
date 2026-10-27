@@ -40,6 +40,15 @@ agentsys dispatch t-abc12345 --adapter auto --account ignored
 
 Routing never bypasses per-account caps.
 
+## Adapter health
+
+```bash
+agentsys adapters --check              # offline: --version per CLI
+agentsys adapters --check --live --account you --adapter mock   # tiny read-only prompt (spends quota)
+```
+
+`agentsys doctor` includes an `adapter-versions` row from the offline check.
+
 ## Watch / scheduler (optional)
 
 Requires `routing.rules` in `.agentsys/profile.json`. Each tick reaps expired leases, picks ready tasks, and runs `agentsys dispatch --adapter auto` (or prints decisions with `--dry-run`).
