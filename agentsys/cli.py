@@ -8,7 +8,7 @@ import sys
 import time
 from pathlib import Path
 
-from . import __version__, budget, gitops, hooks, mcp, profile, trust, usage_import, verify
+from . import __version__, budget, gitops, hooks, mcp, profile, routing, trust, usage_import, verify
 from .doctor import run_doctor
 from .trust import HumanActionRefused
 from .adapters import ADAPTERS
@@ -459,23 +459,38 @@ AGENT_RULES = """
 """
 
 
-def cmd_dispatch(args):
-    st = open_store(args)
+def _resolve_dispatch_target(st, args, t):
+    if args.adapter == "auto":
+        rules = profile.section(root_of(st), "routing").get("rules") or []
+        try:
+            adapter, account, reason = routing.pick(st, t, rules, role=args.role, est=args.estimate)
+        except routing.RoutingError as e:
+            detail = "; ".join(e.rejections[:8]) if e.rejections else str(e)
+            die(f"routing failed: {e}. {detail}")
+        actor = actor_of(args) or "system:routing"
+        st.event(actor, t["id"], "dispatch.routed", {"adapter": adapter.name, "account": account, "reason": reason})
+        print(f"route: {adapter.name}/{account} ({reason})")
+        return adapter, account
     adapter = ADAPTERS.get(args.adapter) or die(f"unknown adapter {args.adapter}")
     if not adapter.binary():
         die(f"{adapter.name} CLI not found; see `agentsys adapters`")
     account = args.account or ("local" if adapter.name == "mock" else die("--account is required"))
-    actor = f"{adapter.name}:{account}:{args.role}"
-    t = st.get(args.id)
+    return adapter, account
+
+
+def dispatch_task(st, task_id, adapter, account, *, role, model, timeout, lease, max_usd, estimate) -> int:
+    """Run headless dispatch; return 0 on success, 5 on agent failure, 1 on refusal."""
+    actor = f"{adapter.name}:{account}:{role}"
+    t = st.get(task_id)
     try:
-        est, alerts = budget.check_dispatch(st, adapter, account, role=args.role, est=args.estimate)
+        est, alerts = budget.check_dispatch(st, adapter, account, role=role, est=estimate)
     except budget.BudgetError as e:
         st.event(actor, t["id"], "dispatch.refused", {"reason": str(e)})
         die(f"refused: {e}")
     for a in alerts:
         print(f"ALERT: {a}", file=sys.stderr)
     if t["state"] in ("ready", "changes_requested"):
-        t = st.claim(t["id"], actor, lease_seconds=args.lease or args.timeout + 300)
+        t = st.claim(t["id"], actor, lease_seconds=lease or timeout + 300)
     elif not (t["state"] == "in_progress" and t["owner"] == actor):
         if t["state"] == "in_progress":
             die(f"can't dispatch {t['id']}: {t['owner']} is already working on it. Wait for it to finish, "
@@ -493,10 +508,9 @@ def cmd_dispatch(args):
     before = budget.summary(st, adapter.provider, account)["used"]
     started = time.time()
     st.event(actor, t["id"], "dispatch.start", {"adapter": adapter.name, "estimate": est, "workdir": str(workdir)})
-    res = adapter.run(prompt, workdir, write=write, timeout=args.timeout, model=args.model,
-                      max_usd=args.max_usd, task=t)
+    res = adapter.run(prompt, workdir, write=write, timeout=timeout, model=model, max_usd=max_usd, task=t)
     run_id = st.record_run(task_id=t["id"], ts_start=started, ts_end=time.time(), adapter=adapter.name,
-                           provider=adapter.provider, account=account, model=res.model or args.model,
+                           provider=adapter.provider, account=account, model=res.model or model,
                            exit_code=res.exit_code, tokens_in=res.tokens_in, tokens_out=res.tokens_out,
                            tokens_cached=res.tokens_cached, tokens_estimate=est, cost_usd=res.cost_usd,
                            usage_source=res.usage_source, note=res.note or None)
@@ -515,6 +529,28 @@ def cmd_dispatch(args):
     _checkpoint(st, t, actor, f"{adapter.name} run {run_id}", commit=write)
     t = st.transition(t["id"], "submit", actor, {"run_id": run_id}, owner_only=True, lease_expires=None)
     print(f"{t['id']} -> {t['state']}; next: agentsys verify {t['id']}")
+    return 0
+
+
+def cmd_route(args):
+    st = open_store(args)
+    t = st.get(args.id)
+    rules = profile.section(root_of(st), "routing").get("rules") or []
+    try:
+        adapter, account, reason = routing.pick(st, t, rules, role=args.role, est=args.estimate)
+    except routing.RoutingError as e:
+        for r in e.rejections:
+            print(f"  - {r}")
+        die(str(e))
+    print(f"{adapter.name}\t{account}\t{reason}")
+
+
+def cmd_dispatch(args):
+    st = open_store(args)
+    t = st.get(args.id)
+    adapter, account = _resolve_dispatch_target(st, args, t)
+    dispatch_task(st, args.id, adapter, account, role=args.role, model=args.model, timeout=args.timeout,
+                  lease=args.lease, max_usd=args.max_usd, estimate=args.estimate)
 
 
 def _budget_line(s):
@@ -778,10 +814,15 @@ def build_parser():
     ho.add_argument("id")
     ho.add_argument("--to", help="target harness (cursor, codex, claude, mock)")
 
+    rt = sp("route", cmd_route, "print adapter/account from profile routing rules (no dispatch)")
+    rt.add_argument("id")
+    rt.add_argument("--role", choices=("work", "review"), default="work")
+    rt.add_argument("--estimate", type=int, help="token estimate for budget check")
+
     d = sp("dispatch", cmd_dispatch, "run a headless agent on a task, within budget")
     d.add_argument("id")
-    d.add_argument("--adapter", required=True, choices=sorted(ADAPTERS))
-    d.add_argument("--account", help="account label, e.g. alice (required for real adapters)")
+    d.add_argument("--adapter", required=True, choices=sorted(ADAPTERS) + ["auto"])
+    d.add_argument("--account", help="account label (required unless adapter is mock or auto)")
     d.add_argument("--model")
     d.add_argument("--role", choices=("work", "review"), default="work")
     d.add_argument("--estimate", type=int, help="override the token estimate")
