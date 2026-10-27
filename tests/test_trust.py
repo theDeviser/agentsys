@@ -35,7 +35,8 @@ def _chain_writer(n, db, home, ledger):
                     st.event(f"agent:cursor:w{n}", None, "test.tick", {"n": n, "i": i})
                     break
                 except sqlite3.OperationalError as e:
-                    if "locked" not in str(e).lower() or attempt == 49:
+                    msg = str(e).lower()
+                    if attempt == 49 or ("locked" not in msg and "disk i/o" not in msg):
                         raise
                     time.sleep(0.05 * (attempt + 1))
     finally:

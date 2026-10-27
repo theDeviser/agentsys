@@ -4,12 +4,12 @@ Generated from `agentsys --help`. Do not edit by hand; run `python3 scripts/chec
 
 ```text
 usage: agentsys [-h] [--version] [--as ACTOR] [--db DB]
-                {init,pipeline,task,show,claim,heartbeat,release,block,unblock,requeue,cancel,finding,checkpoint,submit,verify,review,merge-check,merge,approvals,approve,deny,status,log,resume,handoff,reviewer,route,dispatch,budget,usage,adapters,doctor,metrics,demo,check-branch,hooks,mcp,profile,verify-log,approver,ui} ...
+                {init,pipeline,task,show,claim,heartbeat,release,block,unblock,requeue,cancel,finding,checkpoint,submit,verify,review,merge-check,merge,approvals,approve,deny,status,log,resume,handoff,reviewer,route,dispatch,budget,usage,adapters,watch,doctor,metrics,demo,check-branch,hooks,mcp,profile,verify-log,approver,ui} ...
 
 Durable task coordination for multiple coding agents.
 
 positional arguments:
-  {init,pipeline,task,show,claim,heartbeat,release,block,unblock,requeue,cancel,finding,checkpoint,submit,verify,review,merge-check,merge,approvals,approve,deny,status,log,resume,handoff,reviewer,route,dispatch,budget,usage,adapters,doctor,metrics,demo,check-branch,hooks,mcp,profile,verify-log,approver,ui}
+  {init,pipeline,task,show,claim,heartbeat,release,block,unblock,requeue,cancel,finding,checkpoint,submit,verify,review,merge-check,merge,approvals,approve,deny,status,log,resume,handoff,reviewer,route,dispatch,budget,usage,adapters,watch,doctor,metrics,demo,check-branch,hooks,mcp,profile,verify-log,approver,ui}
     init                create the store for this repository
     pipeline            create chained tasks from a template
     task                create and list tasks
@@ -41,6 +41,7 @@ positional arguments:
     budget              per-account token limits
     usage               self-report interactive usage
     adapters            detect available agent CLIs
+    watch               dispatch ready tasks using routing rules
     doctor              pass/warn/fail health table
     metrics             local task/run counters
     demo                scripted onboarding story (<30s)
