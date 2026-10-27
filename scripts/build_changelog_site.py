@@ -11,6 +11,10 @@ ROOT = Path(__file__).resolve().parents[1]
 MD = ROOT / "CHANGELOG.md"
 OUT = ROOT / "site" / "changelog.html"
 BASE = "/agentsys/"
+SVG_DEFS = """<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-mark" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="4" cy="4" r="2"/><circle cx="12" cy="4" r="2"/><circle cx="8" cy="12" r="2"/><path d="M5.5 5.4 7 10.4M10.5 5.4 9 10.4M6 4h4"/></symbol>
+</svg>"""
+NAV_BRAND = f'<a class="nav-brand" href="{BASE}"><svg width="18" height="18"><use href="#i-mark"/></svg>agentsys</a>'
 
 
 def md_to_fragment(text: str) -> str:
@@ -91,12 +95,14 @@ def wrap(body: str) -> str:
 <link rel="stylesheet" href="{BASE}css/site.css">
 </head>
 <body>
+{SVG_DEFS}
 <nav class="nav is-scrolled">
   <div class="nav-inner">
-    <a class="nav-brand" href="{BASE}">agentsys</a>
+    {NAV_BRAND}
     <div class="nav-right">
       <a class="nav-link" href="{BASE}">Home</a>
       <a class="nav-link" href="{BASE}docs/index.html">Docs</a>
+      <a class="nav-link" href="{BASE}changelog.html">Changelog</a>
       <a class="nav-stars" href="https://github.com/theDeviser/agentsys">GitHub</a>
     </div>
   </div>

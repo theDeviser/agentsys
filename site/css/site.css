@@ -212,7 +212,7 @@ section { position: relative; padding: 96px 0; border-top: 1px solid var(--borde
 /* Harnesses */
 .harness-grid {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -388,7 +388,9 @@ section { position: relative; padding: 96px 0; border-top: 1px solid var(--borde
   padding: 0 32px;
 }
 .footer-brand { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--fg-dim); }
-.footer-brand svg { color: var(--accent); }
+.footer-brand a { color: var(--fg-dim); text-decoration: underline; text-underline-offset: 3px; }
+.footer-brand a:hover { color: var(--fg); }
+.footer-brand svg { color: var(--accent); flex-shrink: 0; }
 .footer-links { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 20px; }
 .footer-links a { font-size: 13px; color: var(--fg-dim); transition: color .2s; }
 .footer-links a:hover { color: var(--fg); }

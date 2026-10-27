@@ -80,9 +80,9 @@
         <div class="harness"><div class="harness-mark"><img src="img/icons/cursor.svg" alt="" width="22" height="22"></div><div class="harness-meta"><div class="harness-name">Cursor</div><div class="harness-tag">cursor-agent -p</div></div></div>
         <div class="harness"><div class="harness-mark"><img src="img/icons/claude.svg" alt="" width="22" height="22"></div><div class="harness-meta"><div class="harness-name">Claude Code</div><div class="harness-tag">claude -p</div></div></div>
         <div class="harness"><div class="harness-mark"><img src="img/icons/codex.svg" alt="" width="22" height="22"></div><div class="harness-meta"><div class="harness-name">Codex CLI</div><div class="harness-tag">codex exec --json</div></div></div>
+        <div class="harness"><div class="harness-mark"><img src="img/icons/grok.svg" alt="" width="22" height="22"></div><div class="harness-meta"><div class="harness-name">Grok CLI</div><div class="harness-tag">grok --prompt-file</div></div></div>
         <div class="harness"><div class="harness-mark"><svg><use href="#i-plug"/></svg></div><div class="harness-meta"><div class="harness-name">Any MCP client</div><div class="harness-tag">agentsys mcp</div></div></div>
         <div class="harness"><div class="harness-mark"><svg><use href="#i-user"/></svg></div><div class="harness-meta"><div class="harness-name">Humans</div><div class="harness-tag">--as human:you</div></div></div>
-        <div class="harness"><div class="harness-mark"><img src="img/icons/grok.svg" alt="" width="22" height="22"></div><div class="harness-meta"><div class="harness-name">Grok Build</div><div class="harness-tag">grok -p --output-format json</div></div></div>
       </div>
       <div class="harness-footer">
         <span><svg width="14" height="14"><use href="#i-check"/></svg>Mock adapter for tests and demos (<code>--adapter mock</code>).</span>
@@ -132,12 +132,19 @@
           <div class="term-head"><i></i><i></i><i></i><span class="term-title">~/code</span></div>
           <div class="term-body">
             <div><span class="prompt">$</span>git clone https://github.com/theDeviser/agentsys.git</div>
-            <div><span class="prompt">$</span>AGENTSYS_DEMO=1 agentsys/bin/agentsys demo --force</div>
-            <div class="dim">demo · 4/10 verify fails — missing app/greeting.txt</div>
-            <div class="dim">demo · 6/10 independent reviewer approves (different harness)</div>
-            <div class="dim">demo · 7/10 agent tries to merge as human — refused</div>
-            <div class="dim">demo · 10/10 verify-log <span class="ok">chain OK</span></div>
-            <div class="dim">demo · done in 2.5s — temp repo discarded</div>
+            <div><span class="prompt">$</span>agentsys init --as human:you</div>
+            <div><span class="prompt">$</span>agentsys pipeline research-implement "Add rate limits" --path src/*</div>
+            <div class="dim">t-a1b2c3d4 research · t-e5f6g7h8 implement (depends on research)</div>
+            <div><span class="prompt">$</span>agentsys dispatch t-a1b2c3d4 --adapter auto</div>
+            <div class="dim">routed to claude/you (research rule)</div>
+            <div><span class="prompt">$</span>agentsys verify t-e5f6g7h8</div>
+            <div class="dim">scope <span class="ok">pass</span> · checks <span class="ok">pass</span></div>
+            <div><span class="prompt">$</span>agentsys review t-e5f6g7h8 approve --as claude:you:work</div>
+            <div class="dim">refused: same harness as author</div>
+            <div><span class="prompt">$</span>agentsys merge t-e5f6g7h8 --as claude:peer:reviewer</div>
+            <div class="dim">refused: needs human: approval</div>
+            <div><span class="prompt">$</span>agentsys verify-log</div>
+            <div class="dim">chain <span class="ok">OK</span></div>
             <div class="cursor"><span class="prompt">$</span><span class="caret"></span></div>
           </div>
         </div>
@@ -162,7 +169,7 @@
   <section id="get-started" class="sec-cta">
     <div class="container cta-inner">
       <h2 class="display cta-title">Your agents deserve a second opinion.</h2>
-      <p class="cta-sub">agentsys is free, MIT licensed, and runs entirely on your machine. Clone it, run the 30-second demo, and point every agent at one task store.</p>
+      <p class="cta-sub">agentsys is free, MIT licensed, and runs entirely on your machine. Clone it, run <code>agentsys init</code>, and point every agent at one task store.</p>
       <div class="cta-actions">
         <a class="btn btn-primary btn-lg" href="https://github.com/theDeviser/agentsys#quick-start">Read the quick start</a>
         <a class="btn btn-ghost btn-lg" href="#" data-install="cursor">Add MCP to Cursor</a>
@@ -174,14 +181,14 @@
 
 <footer class="footer">
   <div class="footer-inner">
-    <div class="footer-brand"><svg width="18" height="18"><use href="#i-mark"/></svg><span>© 2026 agentsys contributors · MIT licensed · Not affiliated with Cursor, Anthropic, OpenAI, or xAI</span></div>
+    <div class="footer-brand"><svg width="18" height="18"><use href="#i-mark"/></svg><span>© 2026 agentsys contributors · MIT licensed · Not affiliated with Cursor, Anthropic, OpenAI, xAI, or Grok · <a href="THIRD_PARTY_NOTICES.md">Product names and logos are trademarks of their respective owners</a>, used only to identify compatible tools</span></div>
     <div class="footer-links">
       <a href="https://github.com/theDeviser/agentsys" target="_blank" rel="noopener noreferrer">GitHub</a>
-      <a href="https://github.com/theDeviser/agentsys/blob/main/docs/index.md">Docs</a>
+      <a href="docs/index.html">Docs</a>
       <a href="changelog.html">Changelog</a>
       <a href="https://github.com/theDeviser/agentsys/issues">Issues</a>
-      <a href="https://github.com/theDeviser/agentsys/blob/main/THREAT_MODEL.md">Threat model</a>
-      <a href="https://github.com/theDeviser/agentsys/blob/main/SECURITY.md">Security</a>
+      <a href="docs/threat-model.html">Threat model</a>
+      <a href="docs/security.html">Security</a>
     </div>
   </div>
 </footer>
