@@ -237,12 +237,29 @@ def cmd_verify(args):
         sys.exit(2)
 
 
+def cmd_reviewer(args):
+    st = open_store(args)
+    t = st.get(args.id)
+    pairs = profile.section(root_of(st), "review").get("pairs") or {}
+    harness = routing.reviewer_for(list(st.authors(t["id"])), pairs)
+    if not harness:
+        die("no review.pairs in .agentsys/profile.json for this task's authors")
+    print(f"suggested harness: {harness}")
+    print(f"example: agentsys --as {harness}:<account>:reviewer review {t['id']} approve --reason \"...\"")
+
+
 def cmd_review(args):
     st = open_store(args)
     actor = actor_of(args)
     t = st.get(args.id)
     if actor in st.authors(t["id"]):
         die(f"{actor} worked on {t['id']} and cannot review it; use a different agent or a human")
+    rev = profile.section(root_of(st), "review")
+    if rev.get("require_different_harness", True):
+        authors = {routing.harness_of(a) for a in st.authors(t["id"])}
+        if routing.harness_of(actor) in authors:
+            die(f"{actor} shares a harness with an author on {t['id']}; use a different harness "
+                f"(see `agentsys reviewer {t['id']}`)")
     action = "approve" if args.verdict == "approve" else "reject"
     st.add_finding(t["id"], actor, f"Review {args.verdict}: {args.reason}", kind="decision",
                    evidence=args.evidence)
@@ -413,6 +430,10 @@ def brief(st, tid) -> str:
         lines.append(f"- checks run at verify: {t['checks']}")
     if t["deps"]:
         lines.append(f"- depends on: {', '.join(t['deps'])}")
+    pairs = profile.section(root_of(st), "review").get("pairs") or {}
+    rh = routing.reviewer_for(list(st.authors(tid)), pairs)
+    if rh:
+        lines.append(f"- suggested reviewer harness: {rh} (`agentsys reviewer {tid}`)")
     lines += ["", "## Last verified checkpoint",
               f"{last_v['summary']} @ {(last_v['commit_sha'] or '')[:10]} by {last_v['author']}" if last_v
               else "(none yet)"]
@@ -813,6 +834,8 @@ def build_parser():
     ho = sp("handoff", cmd_handoff, "resume brief plus the next dispatch command for a harness")
     ho.add_argument("id")
     ho.add_argument("--to", help="target harness (cursor, codex, claude, mock)")
+
+    sp("reviewer", cmd_reviewer, "suggest reviewer harness from profile review.pairs").add_argument("id")
 
     rt = sp("route", cmd_route, "print adapter/account from profile routing rules (no dispatch)")
     rt.add_argument("id")
