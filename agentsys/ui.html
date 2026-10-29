@@ -47,7 +47,7 @@
   --fs-xs: 11px; --fs-sm: 12px; --fs: 13px; --fs-lg: 14px;
   --shadow: 0 0 8px 2px var(--shadow-color);
   --c-anthropic: #D97757; --c-openai: var(--green); --c-cursor: var(--cyan); --c-human: var(--magenta);
-  --c-system: var(--text-3); --c-xai: var(--text-2); --c-google: #4285F4; --c-mock: var(--text-4);
+  --c-system: var(--text-3); --c-xai: var(--text-2); --c-google: #4285F4; --c-mock: var(--text-4); --c-opencode: var(--cyan);
   --warn-text: color-mix(in srgb, var(--yellow) 75%, var(--base));
 }
 [data-theme="light"] {
@@ -461,6 +461,7 @@ const HARNESS = {
   codex: { name: "Codex CLI", vendor: "OpenAI", icon: "codex-color", c: "--c-openai", provider: "openai" },
   cursor: { name: "Cursor", vendor: "Anysphere", icon: "cursor", c: "--c-cursor", provider: "cursor" },
   grok: { name: "Grok", vendor: "xAI", icon: "grok", c: "--c-xai", provider: "xai" },
+  opencode: { name: "OpenCode", vendor: "OpenCode", glyph: "terminal", c: "--c-opencode", provider: "opencode" },
   gemini: { name: "Gemini", vendor: "Google", icon: "gemini-color", c: "--c-google", provider: "google" },
   human: { name: "You", vendor: "Human", glyph: "person", c: "--c-human", provider: "human" },
   system: { name: "Verifier", vendor: "agentsys", glyph: "shield", c: "--c-system", provider: "system" },
@@ -471,6 +472,7 @@ const PROVIDER = {
   openai: { name: "OpenAI", icon: "openai", product: "ChatGPT / Codex" },
   cursor: { name: "Cursor", icon: "cursor", product: "Cursor" },
   xai: { name: "xAI", icon: "xai", product: "Grok" },
+  opencode: { name: "OpenCode", glyph: "terminal", product: "OpenCode" },
   google: { name: "Google", icon: "gemini-color", product: "Gemini" },
 };
 const NOT_YET = [
@@ -1039,7 +1041,7 @@ $("#scrim").addEventListener("mousedown", (e) => { if (e.target.id === "scrim") 
 $("#pal-list").addEventListener("click", (e) => { const b = e.target.closest("[data-pal]"); if (b) { const it = palItems[+b.dataset.pal]; palClose(); it.run(); } });
 
 /* ---------- dialogs ---------- */
-const DEFAULT_EST = { anthropic: 80000, openai: 60000, cursor: 120000, xai: 60000, google: 60000 };
+const DEFAULT_EST = { anthropic: 80000, openai: 60000, cursor: 120000, xai: 60000, google: 60000, opencode: 80000 };
 function parseTok(s) {
   s = String(s ?? "").trim().toLowerCase().replace(/[,_\s]/g, "");
   if (!s) return null;

@@ -245,6 +245,15 @@ class TestBudget(GitRepo):
             budget.check_dispatch(st, grok, "acct", est=90_000)
         budget.check_dispatch(st, grok, "acct", role="review", est=90_000)
 
+    def test_opencode_budget_advisory(self):
+        st = self.store()
+        oc = ADAPTERS["opencode"]
+        st.set_budget("opencode", "acct", 100_000, "human:v", reserve_pct=20)
+        budget.check_dispatch(st, oc, "acct", est=70_000)
+        with self.assertRaises(budget.BudgetError):
+            budget.check_dispatch(st, oc, "acct", est=90_000)
+        budget.check_dispatch(st, oc, "acct", role="review", est=90_000)
+
     def test_unreported_usage_counts_at_estimate_and_accounts_are_separate(self):
         st = self.store()
         st.record_run(ts_start=0, adapter="codex", provider="openai", account="a", usage_source="unknown",
@@ -301,6 +310,61 @@ class TestAdapterParsing(unittest.TestCase):
             self.assertIn("workspace", wr)
             self.assertIn("bypassPermissions", wr)
             self.assertIn("run_terminal_cmd", wr[wr.index("--disallowed-tools") + 1])
+
+    def test_opencode_parse_success_error_partial_and_garbage(self):
+        from agentsys.adapters import _parse_opencode
+        lines = [
+            json.dumps({"type": "step_start", "timestamp": 1}),
+            json.dumps({"type": "text", "part": {"text": "hello"}}),
+            json.dumps({"type": "tool_use", "part": {"tool": "read"}}),
+            json.dumps({"type": "step_finish", "part": {"cost": 0.01, "tokens": {
+                "input": 100, "output": 20, "reasoning": 5,
+                "cache": {"read": 50, "write": 10},
+            }}}),
+            json.dumps({"type": "step_finish", "part": {"cost": 0.02, "tokens": {
+                "input": 10, "output": 5, "reasoning": 0, "cache": {"read": 0, "write": 0},
+            }}}),
+        ]
+        p = _parse_opencode("\n".join(lines), model="anthropic/claude")
+        self.assertEqual(p["text"], "hello")
+        self.assertEqual(p["tokens_in"], 100 + 10 + 10)  # input + cache write per step
+        self.assertEqual(p["tokens_out"], 20 + 5 + 5)  # output + reasoning
+        self.assertEqual(p["tokens_cached"], 50)
+        self.assertAlmostEqual(p["cost_usd"], 0.03)
+        self.assertEqual(p["usage_source"], "provider-reported")
+        self.assertEqual(p["model"], "anthropic/claude")
+        err = json.dumps({"type": "error", "error": {"message": "auth failed"}})
+        self.assertTrue(_parse_opencode(err)["error"])
+        partial = json.dumps({"type": "text", "part": {"text": "x"}})
+        pp = _parse_opencode(partial)
+        self.assertEqual(pp["usage_source"], "unknown")
+        self.assertIsNone(pp["tokens_in"])
+        self.assertIsNone(_parse_opencode("not json\n"))
+
+    def test_opencode_cmd_and_permissions(self):
+        from unittest.mock import patch
+        from agentsys.adapters import OpenCodeAdapter
+        a = OpenCodeAdapter()
+        ok_out = "\n".join([
+            json.dumps({"type": "text", "part": {"text": "ok"}}),
+            json.dumps({"type": "step_finish", "part": {"tokens": {"input": 1, "output": 2}}}),
+        ])
+        with patch.object(OpenCodeAdapter, "binary", return_value="/bin/opencode"), patch.object(OpenCodeAdapter, "_exec") as ex:
+            ex.return_value = (0, ok_out, "", 1.0)
+            a.run("prompt", Path("/tmp/wt"), write=False, timeout=60, model="openai/gpt-5")
+            cmd = ex.call_args[0][0]
+            self.assertEqual(cmd[:6], ["/bin/opencode", "run", "--format", "json", "--dir", str(Path("/tmp/wt"))])
+            self.assertIn("--auto", cmd)
+            self.assertIn("--model", cmd)
+            self.assertIn("openai/gpt-5", cmd)
+            env = ex.call_args[1]["extra_env"]
+            cfg = json.loads(env["OPENCODE_CONFIG_CONTENT"])
+            self.assertEqual(cfg["permission"]["edit"], "deny")
+            self.assertEqual(cfg["permission"]["bash"], "deny")
+            self.assertEqual(env["OPENCODE_DISABLE_AUTOUPDATE"], "1")
+            a.run("prompt", Path("/tmp/wt"), write=True, timeout=60)
+            cfg2 = json.loads(ex.call_args[1]["extra_env"]["OPENCODE_CONFIG_CONTENT"])
+            self.assertEqual(cfg2["permission"]["edit"], "allow")
 
 
 class TestEndToEnd(GitRepo):

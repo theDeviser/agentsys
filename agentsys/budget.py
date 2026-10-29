@@ -50,7 +50,7 @@ def estimate(store, adapter, account) -> int:
     return adapter.default_estimate
 
 
-ADVISORY_PROVIDERS = {"anthropic", "openai", "cursor", "xai"}
+ADVISORY_PROVIDERS = {"anthropic", "openai", "cursor", "xai", "opencode"}
 
 
 def summary(store, provider, account):

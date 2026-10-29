@@ -11,7 +11,7 @@ One-page map of how the tool fits together as of the hardening baseline.
 | `agentsys/cli.py` | All commands; dispatches to adapters; human-facing messages and `resume` brief |
 | `agentsys/verify.py` | Verification gate: scope, syntax, secrets regex, task `--check` commands |
 | `agentsys/budget.py` | Pre-run cap checks, estimates, alerts |
-| `agentsys/adapters.py` | Headless runs: mock, cursor-agent, claude, codex, grok |
+| `agentsys/adapters.py` | Headless runs: mock, cursor-agent, claude, codex, grok, opencode |
 | `agentsys/gitops.py` | Worktrees, merge-check, merge |
 | `agentsys/ui.py` + `ui.html` | Local dashboard; read state; optional writes via POST `/api/action` |
 

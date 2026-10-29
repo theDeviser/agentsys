@@ -26,7 +26,7 @@ PAGE = HERE / "ui.html"
 ICONS = HERE / "static" / "icons"
 
 HARNESS_PROVIDER = {"claude": "anthropic", "codex": "openai", "cursor": "cursor", "mock": "mock",
-                     "human": "human", "system": "system", "grok": "xai", "gemini": "google"}
+                     "human": "human", "system": "system", "grok": "xai", "gemini": "google", "opencode": "opencode"}
 
 # Event kinds that move a task between agents, phrased for people.
 STEP_LABEL = {"task.created": "created", "task.claim": "claimed", "dispatch.start": "ran", "task.submit": "submitted",
