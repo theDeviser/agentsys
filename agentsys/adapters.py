@@ -73,11 +73,14 @@ class Adapter:
         b = self.binary()
         return {"adapter": self.name, "provider": self.provider, "available": bool(b), "binary": b}
 
-    def _exec(self, cmd, workdir, timeout, stdin=None):
+    def _exec(self, cmd, workdir, timeout, stdin=None, extra_env=None):
         start = time.time()
+        env = _child_env()
+        if extra_env:
+            env.update(extra_env)
         try:
             p = subprocess.run(cmd, cwd=str(workdir), input=stdin, capture_output=True, text=True,
-                               timeout=timeout, env=_child_env())
+                               timeout=timeout, env=env)
             return p.returncode, p.stdout, p.stderr, time.time() - start
         except subprocess.TimeoutExpired as e:
             return 124, (e.stdout or "") if isinstance(e.stdout, str) else "", f"timed out after {timeout}s", timeout
@@ -263,6 +266,125 @@ class GrokAdapter(Adapter):
             raw_usage=parsed.get("raw_usage") or {})
 
 
+def _opencode_permission_config(write: bool) -> str:
+    edit = "allow" if write else "deny"
+    return json.dumps({
+        "$schema": "https://opencode.ai/config.json",
+        "permission": {
+            "read": "allow",
+            "glob": "allow",
+            "grep": "allow",
+            "edit": edit,
+            "bash": "deny",
+            "task": "deny",
+            "webfetch": "deny",
+            "websearch": "deny",
+            "external_directory": "deny",
+            "question": "deny",
+        },
+    })
+
+
+class OpenCodeAdapter(Adapter):
+    name = "opencode"
+    provider = "opencode"
+    default_estimate = 80_000
+
+    def binary(self):
+        return _find("opencode", ["~/.opencode/bin/opencode", "~/.local/bin/opencode"])
+
+    def run(self, prompt, workdir, *, write, timeout, model=None, max_usd=None, task=None) -> RunResult:
+        b = self.binary()
+        # opencode run accepts the prompt as an argument (visible in `ps` to the same user).
+        cmd = [b, "run", "--format", "json", "--dir", str(workdir), "--auto"]
+        if model:
+            cmd += ["--model", model]
+        cmd.append(prompt)
+        extra = {
+            "OPENCODE_CONFIG_CONTENT": _opencode_permission_config(write),
+            "OPENCODE_DISABLE_AUTOUPDATE": "1",
+        }
+        code, out, err, _ = self._exec(cmd, workdir, timeout, extra_env=extra)
+        parsed = _parse_opencode(out, model=model)
+        if parsed is None:
+            return RunResult(text=_quiet(err or out).strip()[-800:] or "unparseable output",
+                             exit_code=code or 1, note="unparseable output")
+        if parsed.get("error"):
+            return RunResult(text=parsed["text"], exit_code=code or 1, note=parsed.get("note", ""))
+        exit_code = code if parsed.get("ok", True) else (code or 1)
+        return RunResult(
+            text=parsed["text"], exit_code=exit_code,
+            tokens_in=parsed.get("tokens_in"), tokens_out=parsed.get("tokens_out"),
+            tokens_cached=parsed.get("tokens_cached"), cost_usd=parsed.get("cost_usd"),
+            model=parsed.get("model"), usage_source=parsed.get("usage_source", "unknown"),
+            raw_usage=parsed.get("raw_usage") or {})
+
+
+def _parse_opencode(stdout: str, *, model: str | None = None) -> dict | None:
+    """Parse newline-delimited JSON from `opencode run --format json`."""
+    text = ""
+    tokens_in = tokens_out = tokens_cached = 0
+    cost_usd = 0.0
+    saw_tokens = saw_cost = False
+    error_text = None
+    found_json = False
+    for line in stdout.splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        found_json = True
+        try:
+            ev = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        typ = ev.get("type")
+        if typ == "error":
+            err = ev.get("error")
+            if isinstance(err, dict):
+                error_text = err.get("message") or (err.get("data") or {}).get("message") or str(err)
+            else:
+                error_text = str(err or "opencode error")
+        elif typ == "text":
+            part = ev.get("part") or {}
+            if part.get("text"):
+                text = str(part["text"])
+        elif typ == "step_finish":
+            part = ev.get("part") or {}
+            tok = part.get("tokens") or {}
+            if isinstance(tok, dict):
+                inp = _n(tok.get("input"))
+                out_t = _n(tok.get("output"))
+                reason = _n(tok.get("reasoning"))
+                cache = tok.get("cache") or {}
+                cr = _n(cache.get("read")) if isinstance(cache, dict) else 0
+                cw = _n(cache.get("write")) if isinstance(cache, dict) else 0
+                if inp or out_t or reason or cr or cw:
+                    saw_tokens = True
+                tokens_in += inp + cw
+                tokens_out += out_t + reason
+                tokens_cached += cr
+            cost = part.get("cost")
+            if isinstance(cost, (int, float)):
+                cost_usd += float(cost)
+                saw_cost = True
+    if not found_json:
+        return None
+    if error_text:
+        return {"error": True, "text": error_text, "ok": False}
+    usage_source = "provider-reported" if saw_tokens else "unknown"
+    return {
+        "text": text.strip(),
+        "ok": True,
+        "tokens_in": tokens_in if saw_tokens else None,
+        "tokens_out": tokens_out if saw_tokens else None,
+        "tokens_cached": tokens_cached if saw_tokens else None,
+        "cost_usd": cost_usd if saw_cost else None,
+        "model": model,
+        "usage_source": usage_source,
+        "raw_usage": {"input": tokens_in, "output": tokens_out, "cache_read": tokens_cached, "cost": cost_usd},
+    }
+
+
 def _parse_grok(stdout: str) -> dict | None:
     """Parse Grok Build headless --output-format json (last JSON object on stdout)."""
     line = ""
@@ -314,4 +436,4 @@ def _quiet(stderr):
     return "\n".join(l for l in (stderr or "").splitlines() if "rmcp::" not in l).strip()
 
 
-ADAPTERS = {a.name: a for a in (MockAdapter(), CursorAdapter(), ClaudeAdapter(), CodexAdapter(), GrokAdapter())}
+ADAPTERS = {a.name: a for a in (MockAdapter(), CursorAdapter(), ClaudeAdapter(), CodexAdapter(), GrokAdapter(), OpenCodeAdapter())}

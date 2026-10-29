@@ -54,7 +54,7 @@ Orchestration features below use optional keys in [`.agentsys/profile.json`](../
 |------|--------|----------|
 | Grok Build (`grok`) | shipped | `main` |
 | Gemini CLI + Antigravity (MCP) coordination | planned | [#6](https://github.com/theDeviser/agentsys/issues/6) |
-| OpenCode (`opencode run`) | planned | [#7](https://github.com/theDeviser/agentsys/issues/7) |
+| OpenCode (`opencode run`) | shipped | [#7](https://github.com/theDeviser/agentsys/issues/7) |
 
 ## Document maintenance
 
